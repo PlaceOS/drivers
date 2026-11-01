@@ -1,8 +1,11 @@
 require "placeos-driver"
 require "http"
 require "csv"
+require "../desk_source"
 
 class Place::Desk::Allocations < PlaceOS::Driver
+  include Place::DeskSource
+
   descriptive_name "PlaceOS Desk Allocations"
   generic_name :DeskAllocations
   description %(helper for exporting and importing desk allocations)
@@ -14,6 +17,9 @@ class Place::Desk::Allocations < PlaceOS::Driver
     allocation_list_url: "http://org.com/desk/allocations",
     polling_cron:        "*/15 * * * *",
     testing:             false,
+
+    # read and write desks as `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
   })
 
   @allocation_list_url : String = "http://org.com/desk/allocations"
@@ -48,7 +54,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
     Array(Zone).from_json(staff_api.zones(tags: {"level"}).get_json).sort_by(&.name)
   end
 
-  struct Desk
+  struct DeskAllocation
     include JSON::Serializable
 
     getter id : String
@@ -70,35 +76,30 @@ class Place::Desk::Allocations < PlaceOS::Driver
     end
   end
 
-  def desks : Hash(String, Desk)
+  def desks : Hash(String, DeskAllocation)
     logger.debug { "getting list of all desks" }
-    response = {} of String => Desk
+    response = {} of String => DeskAllocation
 
     l = all_levels
     l.each do |level|
       logger.debug { " - processing level #{level.name}" }
 
-      all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
-      if all_desks && (building = buildings[level.parent_id]?)
-        desks = all_desks.as_a
+      next unless building = buildings[level.parent_id]?
+      building_code = building.code.presence || building.display_name.presence || building.name
+      level_code = level.code.presence || level.display_name.presence || level.name
 
-        building_code = building.code.presence || building.display_name.presence || building.name
-        level_code = level.code.presence || level.display_name.presence || level.name
-
-        desks.each do |desk|
-          desk_id = desk["id"].as_s
-          response[desk_id.downcase] = Desk.new(
-            desk_id,
-            desk["name"].as_s?.presence || desk["id"].as_s,
-            desk["bookable"].as_bool,
-            desk["features"].as_a?.try(&.map(&.as_s).first?),
-            level_code,
-            building_code,
-            desk["assigned_to"]?.try(&.as_s?.presence.try(&.downcase)),
-            building.id,
-            level.id
-          )
-        end
+      level_desks(level.id).each do |desk|
+        response[desk.id.downcase] = DeskAllocation.new(
+          desk.id,
+          desk.name,
+          desk.bookable?,
+          desk.features.first?,
+          level_code,
+          building_code,
+          desk.assigned_to.try(&.downcase),
+          building.id,
+          level.id
+        )
       end
     end
 
@@ -234,8 +235,37 @@ class Place::Desk::Allocations < PlaceOS::Driver
     end
   end
 
-  # set the users in the metadata
+  # set the users on the desks
   protected def update_allocation_metadata(level_zone : String, allocations : Array(Allocation))
+    if use_desk_assets?
+      update_allocation_assets(level_zone, allocations)
+    else
+      write_desk_metadata(level_zone, allocations)
+    end
+  end
+
+  protected def update_allocation_assets(level_zone : String, allocations : Array(Allocation))
+    allocation_hash = allocations.to_h { |alloc| {alloc.desk_id.downcase, alloc} }
+
+    level_desks(level_zone).each do |desk|
+      next unless allocation = allocation_hash[desk.id.downcase]?
+      email, user_name = allocation_user(allocation)
+
+      begin
+        staff_api.update_asset(desk.id, JSON::Any.new({
+          "identifier"    => JSON::Any.new(allocation.desk_name),
+          "assigned_to"   => JSON::Any.new(email),
+          "assigned_name" => JSON::Any.new(user_name),
+          "bookable"      => JSON::Any.new(allocation.bookable),
+        })).get
+      rescue error
+        logger.error(exception: error) { "failed to update desk asset #{desk.id} on level: #{level_zone}" }
+      end
+    end
+  end
+
+  @[Deprecated("desk metadata: set use_desk_assets and remove")]
+  protected def write_desk_metadata(level_zone : String, allocations : Array(Allocation))
     # fetch the level metadata
     all_desks = staff_api.metadata(level_zone, "desks").get.dig?("desks", "details").try(&.as_a?)
     return unless all_desks
@@ -248,18 +278,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       allocation = allocation_hash[desk_id.downcase]?
       desk = desk.as_h
       next desk unless allocation
-
-      if email = allocation.email.presence
-        # look up users name
-        user_name = begin
-          calendar.get_user(email).get["name"].as_s
-        rescue error
-          logger.error(exception: error) { "failed to find allocation name for #{allocation.email}" }
-          email.split("@")[0].split(' ').map(&.capitalize).join(' ')
-        end
-      else
-        user_name = ""
-      end
+      email, user_name = allocation_user(allocation)
 
       desk["name"] = JSON::Any.new(allocation.desk_name)
       desk["assigned_to"] = JSON::Any.new(email)
@@ -274,6 +293,21 @@ class Place::Desk::Allocations < PlaceOS::Driver
     rescue error
       logger.error(exception: error) { "failed to write metadata for level: #{level_zone}" }
     end
+  end
+
+  # the allocated email and the users name
+  protected def allocation_user(allocation : Allocation) : Tuple(String?, String)
+    email = allocation.email.presence
+    return {email, ""} unless email
+
+    # look up users name
+    user_name = begin
+      calendar.get_user(email).get["name"].as_s
+    rescue error
+      logger.error(exception: error) { "failed to find allocation name for #{allocation.email}" }
+      email.split("@")[0].split(' ').map(&.capitalize).join(' ')
+    end
+    {email, user_name}
   end
 
   # Syncs all the allocations
@@ -318,29 +352,22 @@ class Place::Desk::Allocations < PlaceOS::Driver
     assignments = {} of String => AssignmentDetails
 
     # get the desk assignments
-    json = staff_api.metadata_children(building_zone, "desks").get
-    json.as_a.each do |level|
-      level_zone = level["zone"]["id"].as_s
+    building_desks(building_zone).each do |level_zone, desks|
+      desks.each do |desk|
+        assigned_email = desk.assigned_to.presence
+        next unless assigned_email
+        assigned_email = assigned_email.strip.downcase
+        assigned_name = desk.assigned_name
 
-      if desks = level["metadata"]["desks"]?
-        desks["details"].as_a.each do |desk|
-          assigned_email = desk["assigned_to"]?.try(&.as_s?).presence
-          next unless assigned_email
-          assigned_email = assigned_email.strip.downcase
-          assigned_name = desk["assigned_name"]?.try(&.as_s?)
-
-          if assigned_name.nil?
-            logger.warn { "no assigned name for desk #{assigned_email}" }
-            assigned_name = assigned_email.split('@')[0].gsub('.', ' ')
-          end
-
-          desk_id = desk["id"].as_s
-          desk_name = desk["name"]?.try(&.as_s?) || desk_id
-          details = AssignmentDetails.new(desk_id, assigned_email, assigned_name, level_zone, desk_name)
-
-          assignments[desk_id.downcase] = details
-          assigned_to[assigned_email] << details
+        if assigned_name.nil?
+          logger.warn { "no assigned name for desk #{assigned_email}" }
+          assigned_name = assigned_email.split('@')[0].gsub('.', ' ')
         end
+
+        details = AssignmentDetails.new(desk.id, assigned_email, assigned_name, level_zone, desk.name)
+
+        assignments[desk.id.downcase] = details
+        assigned_to[assigned_email] << details
       end
     end
 
