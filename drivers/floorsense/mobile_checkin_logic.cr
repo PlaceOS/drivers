@@ -101,7 +101,7 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
           title = desk.name
 
           @meta_ext_mappings.each do |meta_key, ext_key|
-            if value = desk_value(desk, meta_key)
+            if value = desk.value(meta_key)
               ext_data[ext_key] = value
             end
           end
@@ -135,13 +135,5 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
 
   def placeos_desk_metadata(zone_id : String, asset_id : String) : Desk?
     level_desks(zone_id).find { |desk| desk.id == asset_id }
-  end
-
-  # keys such as `features` are desk fields, custom keys are in `other_data`.
-  # empty desk fields are treated as missing, as they were with metadata
-  private def desk_value(desk : Desk, key : String) : JSON::Any?
-    return desk[key]? unless DESK_FIELDS.includes?(key)
-    value = JSON.parse(desk.to_json)[key]?
-    value unless value.nil? || value.raw.nil? || value.as_a?.try(&.empty?)
   end
 end

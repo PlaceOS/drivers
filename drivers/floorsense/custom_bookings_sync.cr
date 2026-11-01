@@ -287,7 +287,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     begin
       level_desks(zone_id).each do |desk|
-        floor_id = desk_value(desk, @floorsense_lookup_key).try(&.as_s?).presence
+        floor_id = desk.value(@floorsense_lookup_key).try(&.as_s?).presence
         next unless floor_id
 
         # Additional data for adhoc bookings
@@ -295,7 +295,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
           "floorsense_id" => JSON::Any.new(floor_id),
         }
         @meta_ext_mappings.each do |meta_key, ext_key|
-          if value = desk_value(desk, meta_key)
+          if value = desk.value(meta_key)
             ext_data[ext_key] = value
           end
         end
@@ -313,14 +313,6 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       logger.warn(exception: error) { "unable to obtain desk metadata for #{zone_id}" }
       desk_lookup
     end
-  end
-
-  # keys such as `features` are desk fields, custom keys are in `other_data`.
-  # empty desk fields are treated as missing, as they were with metadata
-  private def desk_value(desk : Desk, key : String) : JSON::Any?
-    return desk[key]? unless DESK_FIELDS.includes?(key)
-    value = JSON.parse(desk.to_json)[key]?
-    value unless value.nil? || value.raw.nil? || value.as_a?.try(&.empty?)
   end
 
   # ===================================

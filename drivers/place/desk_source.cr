@@ -54,6 +54,14 @@ module Place::DeskSource
       other_data[key]?
     end
 
+    # looks up a desk metadata key, whether it maps to a desk field or is custom.
+    # empty fields are treated as missing
+    def value(key : String) : JSON::Any?
+      return other_data[key]? unless DESK_FIELDS.includes?(key)
+      value = JSON.parse(to_json)[key]?
+      value unless value.nil? || value.raw.nil? || value.as_a?.try(&.empty?)
+    end
+
     def self.from_asset(json : JSON::Any) : Desk?
       return unless asset = json.as_h?
       return unless id = string(asset["id"]?)
