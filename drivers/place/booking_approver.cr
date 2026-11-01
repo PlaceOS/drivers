@@ -1,10 +1,13 @@
 require "placeos-driver"
 require "./booking_model"
+require "./desk_source"
 
 class Place::BookingApprover < PlaceOS::Driver
+  include Place::DeskSource
+
   descriptive_name "Booking Auto Approver"
   generic_name :BookingApprover
-  description %(Automatically approves all PlaceOS bookings, optionally rejecting bookings for assets not defined in zone metadata)
+  description %(Automatically approves all PlaceOS bookings, optionally rejecting bookings for assets not defined in zone metadata (or desk assets when use_desk_assets is set))
 
   accessor staff_api : StaffAPI_1
 
@@ -18,10 +21,14 @@ class Place::BookingApprover < PlaceOS::Driver
     # time_zone: "Australia/Sydney",
 
     # booking_type => zone metadata key
+    # (booking types mapped to "desks" use Place::DeskSource)
     asset_metadata_keys: {
       "desk"    => "desks",
       "parking" => "parking-spaces",
     },
+
+    # read desks from `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
   })
 
   def on_load
@@ -77,7 +84,7 @@ class Place::BookingApprover < PlaceOS::Driver
     nil
   end
 
-  # Caches the asset ids defined in the metadata of the levels of every building
+  # Caches the asset ids defined in the metadata of the levels of every building (desks via Place::DeskSource)
   def cache_bookable_assets
     building_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
     assets = {} of String => Set(String)
@@ -87,6 +94,11 @@ class Place::BookingApprover < PlaceOS::Driver
       ids = Set(String).new
 
       building_ids.each do |building_id|
+        if metadata_key == DESK_METADATA
+          building_desks(building_id).each_value { |desks| desks.each { |desk| ids << desk.id } }
+          next
+        end
+
         staff_api.metadata_children(building_id, metadata_key).get.as_a.each do |level|
           next unless details = level.dig?("metadata", metadata_key, "details").try(&.as_a?)
           details.each do |asset|
@@ -139,7 +151,7 @@ class Place::BookingApprover < PlaceOS::Driver
       undefined = asset_ids.reject { |asset_id| bookable.includes?(asset_id) }
       if !undefined.empty?
         staff_api.reject(booking.id, "booking_approval_driver").get
-        logger.debug { "Rejected Booking #{booking.id} as assets #{undefined} are not defined in zone metadata" }
+        logger.debug { "Rejected Booking #{booking.id} as assets #{undefined} are not defined" }
         @bookings_rejected += 1
         return false
       end
