@@ -5,6 +5,7 @@ require "json"
 require "oauth2"
 require "./models"
 require "placeos"
+require "../place/desk_source"
 
 class Floorsense::CustomBookingsSync < PlaceOS::Driver
   descriptive_name "Floorsense Desk Bookings Sync"
@@ -19,6 +20,8 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   bind Floorsense_1, :event_49, :booking_created
   bind Floorsense_1, :event_50, :booking_released
   bind Floorsense_1, :event_53, :booking_confirmed
+
+  include Place::DeskSource
 
   alias PlaceUser = PlaceOS::Client::API::Models::User
 
@@ -46,6 +49,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       "features"        => "deskAttributes",
     },
     meta_ext_static: {} of String => String,
+
+    # read desks from `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
   })
 
   @user_ids_cache : Hash(String, String) = {} of String => String
@@ -280,33 +286,26 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     desk_lookup = {} of String => DeskMeta
 
     begin
-      metadata = staff_api.metadata(
-        zone_id,
-        "desks"
-      ).get["desks"]["details"].as_a
-
-      lookup_key = @floorsense_lookup_key
-      metadata.each do |desk|
-        desk = desk.as_h
-        place_id = desk["id"]?.try(&.as_s.presence)
-        next unless place_id
-
-        floor_id = desk[lookup_key]?.try(&.as_s.presence)
+      level_desks(zone_id).each do |desk|
+        floor_id = desk_value(desk, @floorsense_lookup_key).try(&.as_s?).presence
         next unless floor_id
 
         # Additional data for adhoc bookings
         ext_data = {
           "floorsense_id" => JSON::Any.new(floor_id),
         }
-        title = desk["name"]?.try(&.as_s) || place_id
         @meta_ext_mappings.each do |meta_key, ext_key|
-          if value = desk[meta_key]?
+          if value = desk_value(desk, meta_key)
             ext_data[ext_key] = value
           end
         end
 
-        ids = DeskMeta.new(place_id, floor_id, building_id, title, ext_data)
-        desk_lookup[place_id] = ids
+        @meta_ext_static.each do |key, value|
+          ext_data[key] = JSON::Any.new(value)
+        end
+
+        ids = DeskMeta.new(desk.id, floor_id, building_id, desk.name, ext_data)
+        desk_lookup[desk.id] = ids
         desk_lookup[floor_id] = ids
       end
       desk_lookup
@@ -314,6 +313,14 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       logger.warn(exception: error) { "unable to obtain desk metadata for #{zone_id}" }
       desk_lookup
     end
+  end
+
+  # keys such as `features` are desk fields, custom keys are in `other_data`.
+  # empty desk fields are treated as missing, as they were with metadata
+  private def desk_value(desk : Desk, key : String) : JSON::Any?
+    return desk[key]? unless DESK_FIELDS.includes?(key)
+    value = JSON.parse(desk.to_json)[key]?
+    value unless value.nil? || value.raw.nil? || value.as_a?.try(&.empty?)
   end
 
   # ===================================
@@ -920,49 +927,5 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   rescue error
     logger.warn(exception: error) { "desk #{desk_id} not found" }
     raise "Desk not found"
-  end
-
-  def placeos_desk_metadata(zone_id : String, building_id : String?)
-    desk_lookup = {} of String => DeskMeta
-
-    begin
-      metadata = staff_api.metadata(
-        zone_id,
-        "desks"
-      ).get["desks"]["details"].as_a
-
-      lookup_key = @floorsense_lookup_key
-      metadata.each do |desk|
-        desk = desk.as_h
-        place_id = desk["id"]?.try(&.as_s.presence)
-        next unless place_id
-
-        floor_id = desk[lookup_key]?.try(&.as_s.presence)
-        next unless floor_id
-
-        # Additional data for adhoc bookings
-        ext_data = {
-          "floorsense_id" => JSON::Any.new(floor_id),
-        }
-        title = desk["name"]?.try(&.as_s) || place_id
-        @meta_ext_mappings.each do |meta_key, ext_key|
-          if value = desk[meta_key]?
-            ext_data[ext_key] = value
-          end
-        end
-
-        @meta_ext_static.each do |key, value|
-          ext_data[key] = JSON::Any.new(value)
-        end
-
-        ids = DeskMeta.new(place_id, floor_id, building_id, title, ext_data)
-        desk_lookup[place_id] = ids
-        desk_lookup[floor_id] = ids
-      end
-      desk_lookup
-    rescue error
-      logger.warn(exception: error) { "unable to obtain desk metadata for #{zone_id}" }
-      desk_lookup
-    end
   end
 end
