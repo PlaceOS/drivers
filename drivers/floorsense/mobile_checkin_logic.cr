@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "../place/desk_source"
 
 class Floorsense::MobileCheckinLogic < PlaceOS::Driver
   descriptive_name "Floorsense Mobile Checkin Logic"
@@ -8,6 +9,8 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
   accessor booking_sync : FloorsenseBookingSync_1
   accessor staff_api : StaffAPI_1
 
+  include Place::DeskSource
+
   default_settings({
     time_zone:         "Australia/Sydney",
     booking_period:    120,
@@ -15,6 +18,9 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
       "neighbourhoodID" => "neighbourhood",
       "features"        => "deskAttributes",
     },
+
+    # read desks from `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
   })
 
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
@@ -89,16 +95,13 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
       ext_data = {} of String => JSON::Any
       begin
         logger.debug { "obtaining metadata for desk #{place_desk} on level #{level_zone}" }
-        if desk_details = placeos_desk_metadata(level_zone, place_desk)
-          # check if the desk is bookable
-          if bookable = desk_details["bookable"]?
-            return "forbidden" if (bookable.as_s?.try(&.upcase) == "FALSE") || (bookable.as_bool? == false)
-          end
+        if desk = placeos_desk_metadata(level_zone, place_desk)
+          return "forbidden" unless desk.bookable?
 
-          title = desk_details["name"]?.try(&.as_s) || place_desk
+          title = desk.name
 
           @meta_ext_mappings.each do |meta_key, ext_key|
-            if value = desk_details[meta_key]?
+            if value = desk_value(desk, meta_key)
               ext_data[ext_key] = value
             end
           end
@@ -130,17 +133,15 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
     end
   end
 
-  def placeos_desk_metadata(zone_id : String, asset_id : String)
-    metadata = staff_api.metadata(
-      zone_id,
-      "desks"
-    ).get["desks"]["details"].as_a
+  def placeos_desk_metadata(zone_id : String, asset_id : String) : Desk?
+    level_desks(zone_id).find { |desk| desk.id == asset_id }
+  end
 
-    metadata.each do |desk|
-      place_id = desk["id"]?.try(&.as_s)
-      next unless place_id
-      return desk.as_h if place_id == asset_id
-    end
-    nil
+  # keys such as `features` are desk fields, custom keys are in `other_data`.
+  # empty desk fields are treated as missing, as they were with metadata
+  private def desk_value(desk : Desk, key : String) : JSON::Any?
+    return desk[key]? unless DESK_FIELDS.includes?(key)
+    value = JSON.parse(desk.to_json)[key]?
+    value unless value.nil? || value.raw.nil? || value.as_a?.try(&.empty?)
   end
 end
