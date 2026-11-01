@@ -1323,21 +1323,47 @@ class Place::StaffAPI < PlaceOS::Driver
     accessible : Bool? = nil,
     features : Array(String)? = nil,
     zones : Array(String)? = nil,
+    limit : Int32 = 1000,
+    next_page : String? = nil,
   )
-    params = URI::Params.new
-    params["type_id"] = type_id.to_s if type_id.presence
-    params["zone_id"] = zone_id.to_s if zone_id.presence
-    params["order_id"] = order_id.to_s if order_id.presence
-    params["barcode"] = barcode.to_s if barcode.presence
-    params["serial_number"] = serial_number.to_s if serial_number.presence
-    params["bookable"] = bookable.to_s unless bookable.nil?
-    params["accessible"] = accessible.to_s unless accessible.nil?
-    params["features"] = features.join(',') if features && !features.empty?
-    params["zones"] = zones.join(',') if zones && !zones.empty?
-    params["limit"] = 1000.to_s
-    logger.debug { "getting assets (#{params})" }
-    response = get("/api/engine/v2/assets", params, headers: authentication)
+    response = if next_page
+                 logger.debug { "getting assets page (#{next_page})" }
+                 get(next_page, headers: authentication)
+               else
+                 params = URI::Params.new
+                 params["type_id"] = type_id.to_s if type_id.presence
+                 params["zone_id"] = zone_id.to_s if zone_id.presence
+                 params["order_id"] = order_id.to_s if order_id.presence
+                 params["barcode"] = barcode.to_s if barcode.presence
+                 params["serial_number"] = serial_number.to_s if serial_number.presence
+                 params["bookable"] = bookable.to_s unless bookable.nil?
+                 params["accessible"] = accessible.to_s unless accessible.nil?
+                 params["features"] = features.join(',') if features && !features.empty?
+                 params["zones"] = zones.join(',') if zones && !zones.empty?
+                 params["limit"] = limit.to_s
+                 logger.debug { "getting assets (#{params})" }
+                 get("/api/engine/v2/assets", params, headers: authentication)
+               end
     raise "issue getting assets: #{response.status_code}" unless response.success?
+
+    # like `get_members`, the first result holds a link to the next page of results
+    next_link = LinkHeader.new(response)["next"]?
+    return ExecResponse.new(response.body) unless next_link
+
+    assets = JSON.parse(response.body).as_a
+    if first = assets.first?.try(&.as_h?)
+      first["next_page"] = JSON::Any.new(next_link)
+    end
+    ExecResponse.new(assets.to_json)
+  end
+
+  @[Security(Level::Support)]
+  def update_asset(id : String, asset : JSON::Any)
+    logger.debug { "updating asset #{id}" }
+    response = patch("/api/engine/v2/assets/#{id}", body: asset.to_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+    raise "failed to update asset #{id}: #{response.status_code}" unless response.success?
     ExecResponse.new(response.body)
   end
 
