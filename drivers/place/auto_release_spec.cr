@@ -7,6 +7,7 @@ class StaffAPI < DriverSpecs::MockDriver
   getter asset_name : String? = "Fallback name"
   getter assets_fail : Bool = false
   getter asset_calls = 0
+  getter metadata_calls = 0
 
   def configure(metadata_shape : String, identifier : String? = "Desk from Asset", name : String? = "Fallback name", assets_fail : Bool = false)
     @metadata_shape = metadata_shape
@@ -16,6 +17,7 @@ class StaffAPI < DriverSpecs::MockDriver
   end
 
   def metadata(id : String, key : String? = nil)
+    @metadata_calls += 1
     details = if metadata_shape == "migrated"
                 JSON.parse(%({"migrated":true,"migrated_at":1765438509624}))
               else
@@ -32,7 +34,7 @@ class StaffAPI < DriverSpecs::MockDriver
     JSON.parse([{id: "type-desk", name: "_DESKS_", category_id: "category-desk"}].to_json)
   end
 
-  def assets(type_id : String? = nil, zone_id : String? = nil)
+  def assets(type_id : String? = nil, zone_id : String? = nil, order_id : String? = nil, barcode : String? = nil, serial_number : String? = nil, bookable : Bool? = nil, accessible : Bool? = nil, features : Array(String)? = nil, zones : Array(String)? = nil, limit : Int32 = 1000, next_page : String? = nil)
     @asset_calls += 1
     raise "assets unavailable" if assets_fail
     return JSON.parse("[]") unless type_id == "type-desk" && zone_id == "zone-1234"
@@ -1374,6 +1376,25 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
       exec(:send_release_emails).get.should eq [2]
       system(:Mailer_1)[:last_args]["asset_name"].should eq expected
       api.asset_calls.should eq calls
+    end
+  end
+
+  [
+    {"asset-desk", "Asset identifier"},
+    {"legacy-desk", "Asset name for legacy desk"},
+    {"unknown-desk", "unknown-desk"},
+  ].each do |asset_id, expected|
+    it "resolves #{asset_id} from desk assets when use_desk_assets is set" do
+      # the legacy metadata would resolve legacy-desk as "Legacy desk"
+      api.configure("legacy", "Asset identifier", "Asset name")
+      settings({auto_release: {time_before: 10, time_after: 10, resources: ["desk"]}, use_desk_assets: true})
+      status[:pending_release] = [StaffAPI::BOOKINGS[1].merge({asset_id: asset_id})]
+      status[:released_booking_ids] = [] of Int64
+      status[:emailed_booking_ids] = [] of Int64
+      metadata_calls = api.metadata_calls
+      exec(:send_release_emails).get.should eq [2]
+      system(:Mailer_1)[:last_args]["asset_name"].should eq expected
+      api.metadata_calls.should eq metadata_calls
     end
   end
 

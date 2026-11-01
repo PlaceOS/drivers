@@ -65,6 +65,9 @@ class Place::BookingNotifier < PlaceOS::Driver
         notify_booking_owner: true,
       },
     },
+
+    # read desks from `_DESKS_` assets instead of the level `desks` metadata
+    use_desk_assets: false,
   })
 
   accessor staff_api : StaffAPI_1
@@ -142,6 +145,7 @@ class Place::BookingNotifier < PlaceOS::Driver
   def on_update
     @building_id = nil
     @levels = nil
+    clear_asset_cache
 
     @booking_type = setting?(String, :booking_type).presence || "desk"
     @unique_templates = setting?(Bool, :unique_templates) || false
