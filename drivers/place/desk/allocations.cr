@@ -58,6 +58,9 @@ class Place::Desk::Allocations < PlaceOS::Driver
     include JSON::Serializable
 
     getter id : String
+    # the id shared with the desk management tool, desk assets keep the
+    # original metadata desk id as their map_id so integrations are unaffected
+    getter external_id : String
     getter name : String
     getter bookable : Bool
     getter features : String?
@@ -72,7 +75,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
     # getter org : String
     # getter campus : String
 
-    def initialize(@id, @name, @bookable, @features, @level_code, @building_code, @allocation_email, @building_id, @level_id)
+    def initialize(@id, @external_id, @name, @bookable, @features, @level_code, @building_code, @allocation_email, @building_id, @level_id)
     end
   end
 
@@ -91,6 +94,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       level_desks(level.id).each do |desk|
         response[desk.id.downcase] = DeskAllocation.new(
           desk.id,
+          use_desk_assets? ? desk.map_id : desk.id,
           desk.name,
           desk.bookable?,
           desk.features.first?,
@@ -129,7 +133,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
                       "Staff"
                     end
 
-        csv.row desk.id, desk.name, desk.building_code, desk.level_code, desk.allocation_email, desk_type
+        csv.row desk.external_id, desk.name, desk.building_code, desk.level_code, desk.allocation_email, desk_type
       end
     end
 
@@ -172,6 +176,9 @@ class Place::Desk::Allocations < PlaceOS::Driver
     # "desk-6.43.19","6.43.19","Roopali.Misra@cdu.edu.au"
     csv = CSV.new(response.body, headers: true, strip: true)
     csv_allocations = {} of String => Allocation
+    external_ids = all_desks.each_with_object({} of String => String) do |(desk_id, desk), ids|
+      ids[desk.external_id.downcase] = desk_id
+    end
 
     loop do
       break unless csv.next
@@ -179,7 +186,11 @@ class Place::Desk::Allocations < PlaceOS::Driver
       desk_id = row[0]
       allocated_email = row[2].downcase.presence
       bookable = !!allocated_email || row[3].includes?("Hot")
-      csv_allocations[desk_id.downcase] = Allocation.new(desk_id, row[1], allocated_email, bookable)
+
+      # allocations reference the external id, record them against the desk id
+      key = external_ids[desk_id.downcase]? || desk_id.downcase
+      desk_id = all_desks[key]?.try(&.id) || desk_id
+      csv_allocations[key] = Allocation.new(desk_id, row[1], allocated_email, bookable)
     end
 
     level_allocations = Hash(String, Array(Allocation)).new do |hash, level_id|
