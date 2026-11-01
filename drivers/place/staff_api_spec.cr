@@ -43,7 +43,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "approved": false
     }])))
 
-  sleep 1
+  sleep 1.second
   invites_resp = exec(:get_survey_invites, sent: false)
 
   expect_http_request do |request, response|
@@ -90,7 +90,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "sent": false
     }])))
 
-  sleep 1
+  sleep 1.second
   sync_resp = exec(:add_remove_ad_groups, "user-12345", ["ad-group-1", "ad-group-2"])
 
   expect_http_request do |request, response|
@@ -119,7 +119,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "auto_assigned": "ad-group-1"
     }])))
 
-  sleep 1
+  sleep 1.second
   failed_sync = exec(:add_remove_ad_groups, "user-missing", [] of String)
 
   expect_http_request do |_request, response|
@@ -127,4 +127,49 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
   end
 
   expect_raises(PlaceOS::Driver::RemoteException) { failed_sync.get }
+
+  # assets are paginated, the first result links to the next page
+  sleep 1.second
+  assets = exec(:assets, type_id: "type-desk", zone_id: "zone-level", limit: 1)
+
+  expect_http_request do |request, response|
+    request.path.should eq "/api/engine/v2/assets"
+    request.query_params["type_id"].should eq "type-desk"
+    request.query_params["zone_id"].should eq "zone-level"
+    request.query_params["limit"].should eq "1"
+    response.status_code = 200
+    response.headers["Link"] = %(</api/engine/v2/assets?type_id=type-desk&zone_id=zone-level&limit=1&offset=1>; rel="next")
+    response << %([{"id": "asset-1", "identifier": "Desk 1"}])
+  end
+
+  page = assets.get.as_a
+  page.size.should eq 1
+  next_page = page.first["next_page"].as_s
+  next_page.should eq "/api/engine/v2/assets?type_id=type-desk&zone_id=zone-level&limit=1&offset=1"
+
+  sleep 1.second
+  assets = exec(:assets, next_page: next_page)
+
+  expect_http_request do |request, response|
+    request.query_params["offset"].should eq "1"
+    response.status_code = 200
+    response << %([{"id": "asset-2", "identifier": "Desk 2"}])
+  end
+
+  # last page has no next link
+  assets.get.should eq JSON.parse(%([{"id": "asset-2", "identifier": "Desk 2"}]))
+
+  sleep 1.second
+  updated = exec(:update_asset, "asset-1", {assigned_to: "steve@place.tech"})
+
+  expect_http_request do |request, response|
+    request.method.should eq "PATCH"
+    request.path.should eq "/api/engine/v2/assets/asset-1"
+    request.headers["Content-Type"]?.should eq "application/json"
+    JSON.parse(request.body.not_nil!)["assigned_to"].should eq "steve@place.tech"
+    response.status_code = 200
+    response << %({"id": "asset-1", "assigned_to": "steve@place.tech"})
+  end
+
+  updated.get["assigned_to"].should eq "steve@place.tech"
 end

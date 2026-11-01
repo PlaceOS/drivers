@@ -3,6 +3,7 @@ require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 require "place_calendar"
 require "../place/booking_model"
+require "../place/desk_source"
 require "./parking_rest_api_models"
 
 require "goban"
@@ -14,6 +15,7 @@ require "goban/exporters/png"
 
 class Place::Parking::Approvals < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::DeskSource
 
   descriptive_name "PlaceOS Parking Approvals"
   generic_name :ParkingApprovals
@@ -50,6 +52,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     date_time_format: "%c",
     time_format:      "%l:%M%p",
     date_format:      "%A, %-d %B",
+
+    # read desks from `_DESKS_` assets instead of the level `desks` metadata
+    use_desk_assets: false,
   })
 
   @timezone : Time::Location = Time::Location::UTC
@@ -93,6 +98,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
 
     @approval_period = setting?(Int32, :cache_days) || 30
+    @assigned_desks = nil
 
     schedule.clear
     schedule.every(@poll_rate) { process_parking_bookings }
@@ -140,33 +146,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   # ===================================
   # Assigned desks (used to check if user works in the building)
-  # TODO:: migrate to asset version
   # ===================================
-
-  getter building_level_ids : Array(String) do
-    staff_api.zones(parent: building_id, tags: {"level"}).get.as_a.map do |zone|
-      zone["id"].as_s
-    end
-  end
 
   # return users who have assigned desks
   getter assigned_desks : Array(String) do
     logger.debug { "getting list of assigned desks in this building" }
-    assigned = [] of String
-    building_level_ids.each do |level|
-      logger.debug { " - processing level #{level}" }
-
-      all_desks = staff_api.metadata(level, "desks").get.dig?("desks", "details")
-      if all_desks
-        desks = all_desks.as_a
-        desks.each do |desk|
-          if assignment = desk["assigned_to"]?.try(&.as_s?.presence.try(&.downcase))
-            assigned << assignment
-          end
-        end
-      end
-    end
-
+    assigned = building_desks(building_id).values.flatten.compact_map(&.assigned_to.try(&.downcase))
     logger.debug { " - found #{assigned.size} assignments" }
     assigned
   end
@@ -738,7 +723,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     self[:daily_entries] = @crossings.daily_entries
     self[:daily_exits] = @crossings.daily_exits
 
-    # adjust the count if we see more 
+    # adjust the count if we see more
     count = (@crossings.weekly_entries + @crossings.adjustment) - @crossings.weekly_exits
     if count < 0
       @crossings.adjustment -= count

@@ -6,6 +6,7 @@ class StaffAPI < DriverSpecs::MockDriver
   getter failing_type : String? = nil
   getter asset_calls = 0
   getter type_calls = 0
+  getter metadata_calls = 0
 
   def configure(metadata_shape : String, failing_type : String? = nil)
     @metadata_shape = metadata_shape
@@ -32,7 +33,7 @@ class StaffAPI < DriverSpecs::MockDriver
     ].select { |type| category_id.nil? || type[:category_id] == category_id }.to_json)
   end
 
-  def assets(type_id : String? = nil, zone_id : String? = nil)
+  def assets(type_id : String? = nil, zone_id : String? = nil, order_id : String? = nil, barcode : String? = nil, serial_number : String? = nil, bookable : Bool? = nil, accessible : Bool? = nil, features : Array(String)? = nil, zones : Array(String)? = nil, limit : Int32 = 1000, next_page : String? = nil)
     @asset_calls += 1
     raise "assets unavailable" if type_id == failing_type
     ids = case type_id
@@ -95,6 +96,7 @@ class StaffAPI < DriverSpecs::MockDriver
   end
 
   def metadata(id : String, key : String? = nil)
+    @metadata_calls += 1
     zone = ZONES.find! { |z| z["id"] == id }
     key = key.not_nil!
 
@@ -363,6 +365,18 @@ DriverSpecs.mock_driver "Place::AtCapacityMailer" do
     2.times { exec(:get_asset_ids).get }
     api.asset_calls.should eq asset_calls + 2
     api.type_calls.should eq type_calls + 2
+  end
+
+  it "uses desk assets instead of legacy metadata when use_desk_assets is set" do
+    api.configure("legacy")
+    settings({booking_type: "desk", zones: ["level-1"], use_desk_assets: true})
+    metadata_calls = api.metadata_calls
+    exec(:get_asset_ids).get.should eq({"level-1" => ["asset-desk-1", "asset-desk-2"]})
+    api.metadata_calls.should eq metadata_calls
+
+    # parking is unaffected by the desk setting
+    settings({booking_type: "parking", zones: ["level-1"], use_desk_assets: true})
+    exec(:get_asset_ids).get.should eq({"level-1" => ["park-1", "park-2"]})
   end
 
   it "retains available assets when one duplicate type cannot be queried" do

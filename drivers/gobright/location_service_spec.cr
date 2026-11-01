@@ -8,6 +8,22 @@ DriverSpecs.mock_driver "GoBright::LocationService" do
     AreaManagement: {AreaManagementMock},
   })
 
+  base_settings = {
+    gobright_floor_mappings: {
+      "placeos_zone_id": {
+        location_id: "level",
+        name:        "friendly name for documentation",
+      },
+    },
+    return_empty_spaces: true,
+    desk_space_types:    ["desk"],
+    space_cache_cron:    "0 5 * * *",
+  }
+  staff_api = system(:StaffAPI).as(StaffAPIMock)
+
+  # ===================================================
+  # desk metadata
+  # ===================================================
   exec(:device_locations, "placeos_zone_id").get.should eq([
     {
       "location"             => "desk",
@@ -35,6 +51,16 @@ DriverSpecs.mock_driver "GoBright::LocationService" do
       "gobright_space_id"    => "space-4567",
     },
   ])
+
+  # ===================================================
+  # desk assets
+  # ===================================================
+  settings(base_settings.merge({use_desk_assets: true}))
+
+  # the gobright desk name and departments are read from the asset other_data
+  locations = exec(:device_locations, "placeos_zone_id").get.not_nil!.as_a
+  locations.map { |loc| {loc["map_id"], loc["group"]} }.should eq [{"desk-1", "Finance"}, {"room-1", "none"}]
+  staff_api.asset_requests.should eq [nil, "page-2"]
 end
 
 # :nodoc:
@@ -76,6 +102,8 @@ end
 
 # :nodoc:
 class StaffAPIMock < DriverSpecs::MockDriver
+  getter asset_requests : Array(String?) = [] of String?
+
   def zones(tags : String)
     logger.info { "zones requested from staff api" }
     raise "unexpected tags, expected building, got: #{tags}" unless tags == "building"
@@ -100,9 +128,37 @@ class StaffAPIMock < DriverSpecs::MockDriver
             "bookable":           true,
             "gobright_desk_name": "desk-1",
           },
+          # desks without a gobright desk name are ignored
+          {
+            "id":     "table-07.002.status",
+            "name":   "Desk 07.002",
+            "map_id": "table-07.002.status",
+          },
         ],
       },
     }
+  end
+
+  def asset_types(category_id : String? = nil, zone_id : String? = nil, brand : String? = nil, model_number : String? = nil)
+    [{id: "type-desk", name: "_DESKS_"}]
+  end
+
+  def assets(type_id : String? = nil, zone_id : String? = nil, order_id : String? = nil, barcode : String? = nil, serial_number : String? = nil, bookable : Bool? = nil, accessible : Bool? = nil, features : Array(String)? = nil, zones : Array(String)? = nil, limit : Int32 = 1000, next_page : String? = nil)
+    raise "unexpected asset request #{type_id} #{zone_id}" unless type_id == "type-desk" && zone_id == "placeos_zone_id"
+    @asset_requests << next_page
+
+    if next_page
+      [{id: "asset-2", identifier: "Desk 07.002", map_id: "table-07.002.status", zone_id: zone_id, other_data: {} of String => String}]
+    else
+      [{
+        id:         "asset-1",
+        identifier: "Desk 07.001",
+        map_id:     "table-07.001.status",
+        zone_id:    zone_id,
+        other_data: {gobright_desk_name: "desk-1", departments: ["Finance"]},
+        next_page:  "page-2",
+      }]
+    end
   end
 end
 

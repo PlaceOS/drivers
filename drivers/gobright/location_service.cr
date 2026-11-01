@@ -1,9 +1,11 @@
 require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "./models"
+require "../place/desk_source"
 
 class GoBright::LocationService < PlaceOS::Driver
   include Interface::Locatable
+  include Place::DeskSource
 
   descriptive_name "GoBright Location Service"
   generic_name :GoBrightLocationService
@@ -23,6 +25,9 @@ class GoBright::LocationService < PlaceOS::Driver
     return_empty_spaces: true,
     desk_space_types:    ["desk"],
     space_cache_cron:    "0 5 * * *",
+
+    # read desks from `_DESKS_` assets instead of the level `desks` metadata
+    use_desk_assets: false,
   })
 
   # place_zone_id => gobright_location_id
@@ -158,21 +163,17 @@ class GoBright::LocationService < PlaceOS::Driver
     end
 
     # retrieve desk details and perform gobright_desk_name to departments (groups) mapping
-    desks_meta = staff_api.metadata(zone_id, "desks").get.as_h["desks"].as_h
-    desk_groups_mapping = desks_meta["details"].as_a.map do |desk|
-      desk_h = desk.as_h
-      gobright_desk_name = desk_h["gobright_desk_name"].as_s
-      departments = begin
-        if (arr = desk_h["departments"].as_a?)
-          arr.empty? ? ["none"] : arr.map(&.as_s)
-        elsif desk_h.has_key?("departments") && desk_h["departments"].raw.is_a?(String)
-          [desk_h["departments"].as_s]
-        else
-          ["none"]
-        end
-      end
-      {gobright_desk_name, departments}
-    end.to_h
+    desk_groups_mapping = level_desks(zone_id).each_with_object({} of String => Array(String)) do |desk, mapping|
+      next unless gobright_desk_name = desk["gobright_desk_name"]?.try(&.as_s?).presence
+
+      departments = desk["departments"]?
+      groups = if list = departments.try(&.as_a?)
+                 list.compact_map(&.as_s?)
+               elsif department = departments.try(&.as_s?)
+                 [department]
+               end
+      mapping[gobright_desk_name] = groups.nil? || groups.empty? ? ["none"] : groups
+    end
 
     # mark if the space is occupied
     occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id, @default_space_type).get_json)

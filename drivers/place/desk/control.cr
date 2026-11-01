@@ -2,20 +2,24 @@ require "placeos-driver"
 require "placeos-driver/interface/desk_control"
 require "placeos"
 require "json"
+require "../desk_source"
 
 class Place::Desk::Control < PlaceOS::Driver
+  include Place::DeskSource
+
   descriptive_name "PlaceOS Desk Control"
   generic_name :DeskControl
   description %(helper for handling desk control)
 
   default_settings({
     desk_id_key: "id",
+
+    # read desks from `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
   })
 
   accessor area_manager : AreaManagement_1
   accessor staff_api : StaffAPI_1
-
-  METADATA_KEY = "desks"
 
   def on_load
     # cache desk ids periodically
@@ -25,6 +29,7 @@ class Place::Desk::Control < PlaceOS::Driver
 
   def on_update
     @desk_id_key = setting?(String, :desk_id_key) || "id"
+    @desk_ids = nil
   end
 
   getter desk_id_key : String = "id"
@@ -70,42 +75,16 @@ class Place::Desk::Control < PlaceOS::Driver
   # Desk zone queries
   # ===================================
 
-  struct DeskId
-    include JSON::Serializable
-    include JSON::Serializable::Unmapped
-
-    getter id : String
-  end
-
-  struct Details
-    include JSON::Serializable
-
-    property details : Array(DeskId)
-  end
-
-  alias Zone = PlaceOS::Client::API::Models::Zone
-  alias Metadata = Hash(String, Details)
-  alias ChildMetadata = Array(NamedTuple(zone: Zone, metadata: Metadata))
-
+  # desk id => the id configured under `desk_id_key`
   getter desk_ids : Hash(String, String) do
-    metadatas = level_buildings.values.uniq.map do |zone_id|
-      ChildMetadata.from_json(staff_api.metadata_children(
-        zone_id,
-        METADATA_KEY
-      ).get_json)
-    end
-
-    desks = {} of String => String
     key = desk_id_key
+    desks = {} of String => String
 
-    metadatas.each do |metadata|
-      metadata.each do |level|
-        zone = level[:zone]
-        if ids = level[:metadata][METADATA_KEY]?.try(&.details)
-          ids.each do |desk_details|
-            if mapped_id = desk_details.json_unmapped[key]?.try(&.as_s?)
-              desks[desk_details.id] = mapped_id
-            end
+    level_buildings.values.uniq!.each do |building_id|
+      building_desks(building_id).each_value do |level_desks|
+        level_desks.each do |desk|
+          if mapped_id = desk.value(key).try(&.as_s?)
+            desks[desk.id] = mapped_id
           end
         end
       end

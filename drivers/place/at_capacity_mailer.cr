@@ -23,6 +23,9 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     email_template:        "at_capacity",
     unique_templates:      false,    # this appends the booking type to the template name
     asset_cache_timeout:   3600_i64, # 1 hour
+
+    # read desks from `_DESKS_` assets instead of the level `desks` metadata
+    use_desk_assets: false,
   })
 
   accessor staff_api : StaffAPI_1

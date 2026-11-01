@@ -1,11 +1,13 @@
 require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "./booking_model"
+require "./desk_source"
 require "json"
 require "set"
 
 class Place::DeskBookingsLocations < PlaceOS::Driver
   include Interface::Locatable
+  include Place::DeskSource
 
   descriptive_name "PlaceOS Desk Bookings Locations"
   generic_name :DeskBookings
@@ -21,6 +23,9 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     # time in seconds
     poll_rate:    20,
     booking_type: "desk",
+
+    # read desks from `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
 
     _expose_for_analytics: {"output_key" => "booking_key->subkey"},
   })
@@ -69,19 +74,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
   # asset_id => map_id
   getter map_ids : Hash(String, String) do
-    levels = staff_api.metadata_children(building_id, "desks").get.as_a
-    id_map = {} of String => String
-
-    levels.each do |level|
-      if desks = level["metadata"]["desks"]?
-        desks["details"].as_a.each do |desk|
-          if map_id = desk["map_id"]?.try(&.as_s?).presence
-            id_map[desk["id"].as_s] = map_id
-          end
-        end
-      end
-    end
-    id_map
+    building_desks(building_id).each_value.flat_map(&.map { |desk| {desk.id, desk.map_id} }).to_h
   end
 
   # ===================================

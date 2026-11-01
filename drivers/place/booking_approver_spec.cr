@@ -141,6 +141,39 @@ DriverSpecs.mock_driver "Place::BookingApprover" do
   exec(:status).get.not_nil!["bookable_assets"].should eq({"desk" => 0})
   id = create_booking(booking_id, ["desk-1"], "desk", false)
   staff_api.rejected.should eq [id]
+
+  # ===================================================
+  # desk assets: desk bookings reference the Asset#id
+  # ===================================================
+  staff_api.reset
+  settings({
+    approve_booking_types:   ["desk", "parking"],
+    approve_zones:           ["zone-building"],
+    reject_undefined_assets: true,
+    use_desk_assets:         true,
+  })
+  sleep 2.seconds
+
+  # desks come from the assets (two pages for zone-building), other types from metadata
+  exec(:status).get.not_nil!["bookable_assets"].should eq({"desk" => 3, "parking" => 1})
+  staff_api.metadata_requests.sort.should eq [
+    {"zone-building", "parking-spaces"},
+    {"zone-building-2", "parking-spaces"},
+  ]
+  staff_api.asset_requests.should eq [
+    {"zone-building", nil},
+    {"zone-building", "page-2"},
+    {"zone-building-2", nil},
+  ]
+
+  asset_desk = create_booking(booking_id, ["asset-1"], "desk", false)
+  second_page_desk = create_booking(booking_id, ["asset-2"], "desk", false)
+  other_building_asset = create_booking(booking_id, ["asset-3"], "desk", false)
+  metadata_desk = create_booking(booking_id, ["desk-1"], "desk", false)
+  parking = create_booking(booking_id, ["park-1"], "parking", false)
+
+  staff_api.approved.should eq [asset_desk, second_page_desk, other_building_asset, parking]
+  staff_api.rejected.should eq [metadata_desk]
 end
 
 # :nodoc:
@@ -179,6 +212,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
   getter rejected = [] of Int64
   getter reject_sources = [] of String?
   getter metadata_requests = [] of Tuple(String, String)
+  getter asset_requests = [] of Tuple(String, String?)
   @fail_metadata : Bool = false
 
   def fail_metadata(state : Bool)
@@ -190,6 +224,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @rejected.clear
     @reject_sources.clear
     @metadata_requests.clear
+    @asset_requests.clear
     @fail_metadata = false
   end
 
@@ -203,6 +238,27 @@ class StaffAPIMock < DriverSpecs::MockDriver
     LEVEL_METADATA[id].as_a.map do |level|
       metadata = level["metadata"].as_h.select { |name, _| name == key }
       {zone: level["zone"], metadata: metadata}
+    end
+  end
+
+  def asset_types(category_id : String? = nil, zone_id : String? = nil, brand : String? = nil, model_number : String? = nil)
+    [{id: "type-desk", name: "_DESKS_"}, {id: "type-locker", name: "Lockers"}]
+  end
+
+  def assets(type_id : String? = nil, zone_id : String? = nil, order_id : String? = nil, barcode : String? = nil, serial_number : String? = nil, bookable : Bool? = nil, accessible : Bool? = nil, features : Array(String)? = nil, zones : Array(String)? = nil, limit : Int32 = 1000, next_page : String? = nil)
+    raise "unexpected asset type #{type_id}" unless type_id == "type-desk"
+    building = zones.try(&.first?).to_s
+    @asset_requests << {building, next_page}
+
+    case {building, next_page}
+    when {"zone-building", nil}
+      [{id: "asset-1", identifier: "desk-1", zone_id: "zone-level-1", zones: [building, "zone-level-1"], next_page: "page-2"}]
+    when {"zone-building", "page-2"}
+      [{id: "asset-2", identifier: "desk-2", zone_id: "zone-level-1", zones: [building, "zone-level-1"]}]
+    when {"zone-building-2", nil}
+      [{id: "asset-3", identifier: "desk-3", zone_id: "zone-level-3", zones: [building, "zone-level-3"]}]
+    else
+      [] of Nil
     end
   end
 

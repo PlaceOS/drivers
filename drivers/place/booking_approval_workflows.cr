@@ -6,9 +6,11 @@ require "placeos"
 require "file"
 
 require "./booking_model"
+require "./desk_source"
 
 class Place::BookingApprovalWorkflows < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::DeskSource
 
   descriptive_name "Desk Booking Approval Workflows"
   generic_name :BookingApproval
@@ -25,6 +27,9 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
     remind_after:        24,
     escalate_after:      48,
     disable_attachments: true,
+
+    # read desks from `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
 
     approval_type: {
       zone_id1: {
@@ -678,18 +683,9 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def users_with_invalid_desk_bookings(building_zone : String, ending : Int64)
-    # [] of {zone: {id:}, metadata: {desks: {details: [{id:, groups: [] of String}]}}}
-    meta_raw = staff_api.metadata_children(building_zone, "desks").get.as_a
-
     # Zone => Desk_id => Groups
-    metadata = {} of String => Hash(String, Array(String))
-    meta_raw.each do |zone|
-      desks = {} of String => Array(String)
-      zone_id = zone["zone"]["id"].as_s
-      zone["metadata"]["desks"]["details"].as_a.each do |desk|
-        desks[desk["id"].as_s] = desk["groups"].as_a.map(&.as_s.downcase)
-      end
-      metadata[zone_id] = desks
+    metadata = building_desks(building_zone).transform_values do |desks|
+      desks.to_h { |desk| {desk.id, desk.groups.map(&.downcase)} }
     end
 
     # User email, Desk ID, zone, booking id, starting, starting friendly
@@ -720,7 +716,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
     logger.debug { "Email,Desk ID,Zone,Booking id,Starting,Start date\n#{users.map { |u| "#{u[0]},#{u[1]},#{u[2]},#{u[3]},#{u[4]},#{u[5]}" }.join("\n")}" }
 
-    nil
+    users
   end
 
   @[Security(Level::Support)]

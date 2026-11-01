@@ -4,9 +4,11 @@ require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 require "placeos-driver/interface/zone_access_security"
 require "../booking_model"
+require "../desk_source"
 
 class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::DeskSource
 
   descriptive_name "PlaceOS Booking Area Access"
   generic_name :BookingAreaAccess
@@ -26,6 +28,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     # At 10:00 on every day-of-week from Monday through Friday
     _email_cron:      "0 10 * * 1-5",
     _email_errors_to: "admin@org.com",
+
+    # read desks from `_DESKS_` assets instead of the level `desks` metadata
+    use_desk_assets: false,
   })
 
   accessor calendar : Calendar_1
@@ -134,13 +139,6 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     ensure_booking_access
   end
 
-  struct Desk
-    include JSON::Serializable
-
-    getter id : String
-    getter security : String? = nil
-  end
-
   def username_lookup(email : String) : String
     email = email.strip.downcase
     if username = cached_username[email]?
@@ -212,25 +210,18 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     nil
   end
 
-  # returns desk_id => security zone name / id
-  def desks(level_id : String, blocked : Hash(String, String | Int64) = {} of String => String | Int64) : Hash(String, String)
-    desks = with_retry("desk metadata lookup for #{level_id}") do
-      staff_api.metadata(level_id, "desks").get.dig?("desks", "details")
-    end
-    security = {} of String => String
-    return security unless desks
+  # returns desk_id => security zone names / ids
+  def desks(level_id : String, blocked : Hash(String, Array(String)) = {} of String => Array(String)) : Hash(String, Array(String))
+    desks = with_retry("desk lookup for #{level_id}") { level_desks(level_id) }
+    security = {} of String => Array(String)
 
-    Array(Desk).from_json(desks.to_json).each do |desk|
-      sec = desk.security.presence
-      next unless sec
+    desks.each do |desk|
+      groups = desk.security.reject(&.empty?)
+      next if groups.empty?
 
-      if security_zone_whitelist.empty?
-        security[desk.id] = sec
-      elsif security_zone_whitelist.includes?(sec)
-        security[desk.id] = sec
-      else
-        blocked[desk.id] = sec
-      end
+      allowed, denied = groups.partition { |group| security_zone_whitelist.empty? || security_zone_whitelist.includes?(group) }
+      security[desk.id] = allowed unless allowed.empty?
+      blocked[desk.id] = denied unless denied.empty?
     end
     security
   end
@@ -248,9 +239,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   def ensure_booking_access
     errors = [] of String
-    # desk id => security zone
+    # desk id => security zones
     # where mapping blocked due to not being whitelisted
-    blocked = {} of String => String | Int64
+    blocked = {} of String => Array(String)
 
     @check_mutex.synchronize do
       if @performing_check
@@ -286,7 +277,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             desk = booking["asset_id"].as_s
             if security = desks[desk]?
               user_access = access_required[booking["user_email"].as_s.downcase]
-              user_access << security
+              user_access.concat security
               user_access.uniq!
             end
           end
@@ -421,15 +412,15 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def security_zone_report
-    # desk id => security id
-    blocked = {} of String => String | Int64
-    found = {} of String => String | Int64
+    # desk id => security ids
+    blocked = {} of String => Array(String)
+    found = {} of String => Array(String)
     levels.each do |level_id|
       found.merge! desks(level_id, blocked)
     end
 
-    found_values = found.values.map(&.to_s).uniq!
-    security_groups = found.values + blocked.values
+    found_values = found.values.flatten.uniq!
+    security_groups = (found.values + blocked.values).flatten
     in_whitelist_only = security_zone_whitelist - security_groups
 
     {
@@ -443,7 +434,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   def approve_security_zone_list
     # save all the security zones to the whitelist
     details = security_zone_report
-    new_whitelist = details[:in_whitelist_only] + details[:allocated] + details[:blocked].values.uniq!
+    new_whitelist = details[:in_whitelist_only] + details[:allocated] + details[:blocked].values.flatten.uniq!
     whitelist_strings = new_whitelist.compact_map { |item| item.as(String) if item.is_a?(String) }.sort!
     whitelist_ints = new_whitelist.compact_map { |item| item.as(Int64) if item.is_a?(Int64) }.sort!
 
@@ -484,7 +475,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   end
 
   def notify_issues
-    sync_blocked = status?(Hash(String, String | Int64), :sync_blocked) || Hash(String, String | Int64).new
+    sync_blocked = status?(Hash(String, Array(String)), :sync_blocked) || Hash(String, Array(String)).new
     sync_errors = status?(Array(String), :sync_errors) || [] of String
     return if sync_blocked.empty? && sync_errors.empty?
 
@@ -493,8 +484,8 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
         io << "security groups not in the whitelist: <br>\n"
         io << "===================================== <br>\n"
 
-        sync_blocked.each do |desk_id, security_zone|
-          io << "desk: #{desk_id}, security group: #{security_zone} <br>\n"
+        sync_blocked.each do |desk_id, security_zones|
+          io << "desk: #{desk_id}, security group: #{security_zones.join(", ")} <br>\n"
         end
         io << " <br><br>\n\n"
       end

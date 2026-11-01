@@ -30,6 +30,9 @@ class Place::AutoRelease < PlaceOS::Driver
     skip_same_day:            false,    # Skip bookings created on the same day as the booking
     skip_all_day:             false,    # Skip all day bookings
     asset_cache_timeout:      3600_i64, # 1 hour
+
+    # read desks from `_DESKS_` assets instead of the level `desks` metadata
+    use_desk_assets: false,
   })
 
   accessor staff_api : StaffAPI_1

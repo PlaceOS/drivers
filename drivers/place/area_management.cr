@@ -3,11 +3,14 @@ require "placeos"
 require "placeos-driver"
 require "./area_config"
 require "./area_polygon"
+require "./desk_source"
 require "placeos-driver/interface/sensor"
 
 ::PlaceOS::Driver::Interface::Sensor.include_unit_conversions
 
 class Place::AreaManagement < PlaceOS::Driver
+  include Place::DeskSource
+
   descriptive_name "PlaceOS Area Management"
   generic_name :AreaManagement
   description %(counts trackable objects, such as laptops, in building areas)
@@ -43,6 +46,9 @@ class Place::AreaManagement < PlaceOS::Driver
     # If another systems has different desk IDs configured you can add them to
     # desk metadata and then specify the alternative field names here:
     # desk_id_mappings: ["floorsensedeskid", "vergesensedeskid"]
+
+    # read desks from `_DESKS_` assets instead of the `desks` zone metadata
+    use_desk_assets: false,
 
     units: {
       "Temperature" => "Cel",
@@ -286,45 +292,33 @@ class Place::AreaManagement < PlaceOS::Driver
   # ===============================
 
   # Updates a single zone, syncing the metadata
-  protected def update_level_details(level_details, zone, metadata)
+  protected def update_level_details(level_details, zone, metadata, desks : Array(Desk))
     return unless zone.tags.includes?("level")
 
-    desks_meta = metadata["desks"]?
-    if desks_meta && (desk_array = desks_meta.details.as_a?)
-      desk_map = {} of String => String
-
-      if @desk_id_mappings.empty?
-        ids = desk_array.map { |desk| desk["id"].as_s }
-      else
-        ids = Array(String).new(desk_array.size)
-
-        desk_array.each do |desk|
-          desk_id = desk["id"].as_s
-          ids << desk_id
-          @desk_id_mappings.each do |mapping|
-            if alt_id = desk[mapping]?
-              desk_map[alt_id.as_s] = desk_id
-            end
-          end
-        end
-      end
-
-      ids = desk_array.map { |desk| desk["id"].as_s }
-      level_details[zone.id] = {
-        total_desks:    ids.size,
-        total_capacity: zone.capacity,
-        desk_ids:       ids,
-        desk_mappings:  desk_map,
-      }
-    else
-      if desks_meta
-        logger.warn { "desks metadata for zone #{zone.id} has unexpected format: expected Array, got #{desks_meta.details.raw.class}" }
-      end
+    if desks.empty?
       level_details[zone.id] = {
         total_desks:    zone.count,
         total_capacity: zone.capacity,
         desk_ids:       [] of String,
         desk_mappings:  {} of String => String,
+      }
+    else
+      # locations reference desks by their map id
+      ids = desks.map(&.map_id)
+      desk_map = {} of String => String
+      desks.each do |desk|
+        @desk_id_mappings.each do |mapping|
+          if alt_id = desk.value(mapping).try(&.as_s?)
+            desk_map[alt_id] = desk.map_id
+          end
+        end
+      end
+
+      level_details[zone.id] = {
+        total_desks:    ids.size,
+        total_capacity: zone.capacity,
+        desk_ids:       ids,
+        desk_mappings:  desk_map,
       }
     end
 
@@ -365,9 +359,11 @@ class Place::AreaManagement < PlaceOS::Driver
     buildings.each do |b_id|
       # Attempt to obtain the latest version of the metadata
       response = ChildMetadata.from_json(staff_api.metadata_children(b_id).get_json)
+      desks = building_desks(b_id)
       response.each do |meta|
-        level_buildings[meta[:zone].id] = b_id
-        update_level_details(level_details, meta[:zone], meta[:metadata])
+        zone = meta[:zone]
+        level_buildings[zone.id] = b_id
+        update_level_details(level_details, zone, meta[:metadata], desks[zone.id]? || [] of Desk)
       end
     end
 
@@ -602,7 +598,7 @@ class Place::AreaManagement < PlaceOS::Driver
       end
       metadata = Metadata.from_json(staff_api.metadata(level_id).get_json)
 
-      update_level_details @level_details, zone, metadata
+      update_level_details @level_details, zone, metadata, level_desks(level_id)
       update_level_locations @level_counts, level_id, @level_details[level_id], sensor_data
       update_overview if overview
     end
