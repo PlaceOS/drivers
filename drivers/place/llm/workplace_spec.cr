@@ -502,13 +502,13 @@ DriverSpecs.mock_driver "Place::Workplace" do
     result.map(&.["level_name"].as_s).should eq ["Level 3", "Level 2"]
 
     # who is sitting there, not just how many
-    result.first["colleagues"].as_a.map(&.["email"].as_s).sort.should eq [
+    result.first["colleagues"].as_a.map(&.["email"].as_s).sort!.should eq [
       "c1@example.com", "c2@example.com", "c3@example.com",
     ]
     result.last["colleagues"].as_a.map(&.["name"].as_s).should eq ["Colleague Four"]
 
     level_2 = result.first
-    level_2["groups"].as_a.map(&.as_s).sort.should eq ["design", "eng", "staff"]
+    level_2["groups"].as_a.map(&.as_s).sort!.should eq ["design", "eng", "staff"]
 
     # desk.a is the closest desk to one colleague but the furthest from the
     # other two, so the more central desk.b outranks it. Both are returned as
@@ -539,7 +539,7 @@ DriverSpecs.mock_driver "Place::Workplace" do
     desks = exec(:desks, level_id: "zone-level-1", day_offset: 0).get.as_a
     # L1-A is booked by a colleague
     desks.map(&.["id"].as_s).should eq ["desk-1", "desk-2", "L1-B", "L1-C", "L1-D", "L1-E"]
-    desks.first.as_h.keys.sort.should eq ["bookable", "features", "groups", "id", "map_id", "name"]
+    desks.first.as_h.keys.sort!.should eq ["bookable", "features", "groups", "id", "map_id", "name"]
 
     levels = exec(:levels).get.as_a
     level_1 = levels.find!(&.["id"].as_s.==("zone-level-1"))
@@ -562,7 +562,7 @@ DriverSpecs.mock_driver "Place::Workplace" do
 
     # the LLM gets the same slim desk shape as before, no asset other_data
     desk = desks.first.as_h
-    desk.keys.sort.should eq ["bookable", "features", "groups", "id", "map_id", "name"]
+    desk.keys.sort!.should eq ["bookable", "features", "groups", "id", "map_id", "name"]
     desk["name"].as_s.should eq "Desk 1"
     desk["map_id"].as_s.should eq "map-desk-1"
 

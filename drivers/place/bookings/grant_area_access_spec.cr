@@ -181,7 +181,7 @@ class SecurityMock < DriverSpecs::MockDriver
     @members.transform_values(&.sort)
   end
 
-  def card_holder_id_lookup(email : String) : String | Int64 | Nil
+  def card_holder_id_lookup(email : String) : String | Int64?
     "card-#{email}"
   end
 
@@ -189,7 +189,7 @@ class SecurityMock < DriverSpecs::MockDriver
     MockCardHolder.new(id, id.to_s, nil)
   end
 
-  def zone_access_id_lookup(name : String, exact_match : Bool = true) : String | Int64 | Nil
+  def zone_access_id_lookup(name : String, exact_match : Bool = true) : String | Int64?
     name if name.starts_with?("group-")
   end
 
@@ -197,7 +197,7 @@ class SecurityMock < DriverSpecs::MockDriver
     MockZone.new(id, id.to_s, nil)
   end
 
-  def zone_access_member?(zone_id : String | Int64, card_holder_id : String | Int64, from_unix : Int64? = nil, until_unix : Int64? = nil) : String | Int64 | Nil
+  def zone_access_member?(zone_id : String | Int64, card_holder_id : String | Int64, from_unix : Int64? = nil, until_unix : Int64? = nil) : String | Int64?
     card_holder_id.to_s if @members[zone_id.to_s]?.try(&.includes?(card_holder_id.to_s))
   end
 
