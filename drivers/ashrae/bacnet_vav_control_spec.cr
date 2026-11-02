@@ -376,6 +376,17 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   status[:desk_checked_in].should eq false
   bacnet.values_written.last?.should eq 3
   status[:vav_active].should eq false
+
+  # desks configured by map_id, where the asset_id differs -> air on
+  bacnet.reset
+  desks.set_asset_id("asset-1234")
+  desks.set_map_id("desk-6.67.25")
+  exec(:check_desk_usage).get.should eq true
+  sleep 200.milliseconds
+
+  status[:desk_checked_in].should eq true
+  bacnet.values_written.last?.should eq 1
+  status[:vav_active].should eq true
 end
 
 # :nodoc:
@@ -479,6 +490,7 @@ end
 class DeskBookingsMock < DriverSpecs::MockDriver
   @checked_in : Bool = false
   @asset_id : String = "desk-6.67.25"
+  @map_id : String? = nil
 
   def set_checked_in(state : Bool) : Nil
     @checked_in = state
@@ -486,6 +498,11 @@ class DeskBookingsMock < DriverSpecs::MockDriver
 
   def set_asset_id(asset_id : String) : Nil
     @asset_id = asset_id
+  end
+
+  # nil mirrors the asset_id, as most systems are configured
+  def set_map_id(map_id : String?) : Nil
+    @map_id = map_id
   end
 
   def device_locations(zone_id : String, location : String? = nil)
@@ -507,7 +524,7 @@ class DeskBookingsMock < DriverSpecs::MockDriver
         mac:         "user-HoWSkZDC0IpGFN",
         staff_email: "jane.doe@example.com",
         staff_name:  "Jane Doe",
-        map_id:      @asset_id,
+        map_id:      @map_id || @asset_id,
       },
       {
         location:    "booking",

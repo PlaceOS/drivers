@@ -136,13 +136,19 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
 
     getter? checked_in : Bool
     getter asset_id : String
+    getter map_id : String?
+
+    # desks may be configured by either their asset or map id
+    def matches?(desk_ids : Array(String)) : Bool
+      asset_id.in?(desk_ids) || !!map_id.try(&.in?(desk_ids))
+    end
   end
 
   def check_desk_usage : Bool
     # this is talking to the place/desk_bookings_locations.cr driver
     bookings = system(bacnet_system_id).get("DeskBookings", 1)
     desks = Array(Desk).from_json bookings.device_locations(level_id).get_json
-    @desk_checked_in = desks.any? { |desk| desk.asset_id.in?(@desk_ids) && desk.checked_in? }
+    @desk_checked_in = desks.any? { |desk| desk.checked_in? && desk.matches?(@desk_ids) }
     self[:desk_checked_in] = @desk_checked_in
 
     update_state
@@ -287,7 +293,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     if vav_active?
       @update_mutex.synchronize { cancel_off_timer }
       return
-    end 
+    end
     agreement = true
 
     @update_mutex.synchronize do
