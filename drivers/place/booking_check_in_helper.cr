@@ -22,7 +22,7 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
 
   default_settings({
     # option to disable, due to faulty hardware
-    disable_checkin_helper: false,
+    disable_checkin_helper:  false,
     occupancy_sensor_failed: false,
 
     # how many minutes until we want to prompt the user
