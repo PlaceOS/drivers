@@ -144,9 +144,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @asset_requests << {zones, zone_id, next_page}
 
     if next_page
-      [{id: "asset-2", identifier: "desk-2", map_id: "table-2", zone_id: "zone-level-1", other_data: {floorsensedeskid: "fs-2"}}]
+      [{id: "asset-2", identifier: "desk-2", map_id: "table-2", zone_id: "zone-level-1", client_ids: {floorsensedeskid: "fs-2"}}]
     else
-      [{id: "asset-1", identifier: "desk-1", map_id: "table-1", zone_id: "zone-level-1", other_data: {floorsensedeskid: "fs-1"}, next_page: "page-2"}]
+      [{id: "asset-1", identifier: "desk-1", map_id: "table-1", zone_id: "zone-level-1", client_ids: {floorsensedeskid: "fs-1"}, next_page: "page-2"}]
     end
   end
 end

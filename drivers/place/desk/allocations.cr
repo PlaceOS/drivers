@@ -59,7 +59,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
 
     getter id : String
     # the id shared with the desk management tool, desk assets keep the
-    # original metadata desk id as their map_id so integrations are unaffected
+    # original metadata desk id (`legacy_id`) so integrations are unaffected
     getter external_id : String
     getter name : String
     getter bookable : Bool
@@ -94,7 +94,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       level_desks(level.id).each do |desk|
         response[desk.id.downcase] = DeskAllocation.new(
           desk.id,
-          use_desk_assets? ? desk.map_id : desk.id,
+          use_desk_assets? ? desk.legacy_id : desk.id,
           desk.name,
           desk.bookable?,
           desk.features.first?,

@@ -10,8 +10,9 @@ module Place::DeskSource
   DESK_ASSET_TYPE = "_DESKS_"
   DESK_METADATA   = "desks"
 
-  # metadata keys with a dedicated field, the rest are kept in `other_data`.
-  # matches init `migrate:desk_assets` so both sources present the same desk
+  # metadata keys with a dedicated field. matches init `migrate:desk_assets` so both
+  # sources present the same desk: the remaining string values (third party ids) are kept
+  # in `client_ids`, everything else (and `homebase`) in `other_data`
   DESK_FIELDS = {"id", "map_id", "name", "bookable", "assigned_to", "assigned_name", "groups", "features", "images", "notes", "security"}
 
   struct Desk
@@ -30,7 +31,11 @@ module Place::DeskSource
     getter notes : String?
     getter security : Array(String)
 
-    # custom fields, such as third party ids (`floorsense_id`)
+    # third party ids (`floorsense_id`) and `place_id`, the original metadata desk id
+    # when it differs from the map_id
+    getter client_ids : Hash(String, JSON::Any)
+
+    # other custom fields, such as `homebase` or `tags`
     getter other_data : Hash(String, JSON::Any)
 
     def initialize(
@@ -46,18 +51,25 @@ module Place::DeskSource
       @images : Array(String) = [] of String,
       @notes : String? = nil,
       @security : Array(String) = [] of String,
+      @client_ids : Hash(String, JSON::Any) = {} of String => JSON::Any,
       @other_data : Hash(String, JSON::Any) = {} of String => JSON::Any,
     )
     end
 
+    # a custom desk key, third party ids are in `client_ids`
     def []?(key : String) : JSON::Any?
-      other_data[key]?
+      client_ids[key]? || other_data[key]?
+    end
+
+    # the desk id external systems and existing data reference
+    def legacy_id : String
+      client_ids["place_id"]?.try(&.as_s?).presence || map_id
     end
 
     # looks up a desk metadata key, whether it maps to a desk field or is custom.
     # empty fields are treated as missing
     def value(key : String) : JSON::Any?
-      return other_data[key]? unless DESK_FIELDS.includes?(key)
+      return self[key]? unless DESK_FIELDS.includes?(key)
       value = JSON.parse(to_json)[key]?
       value unless value.nil? || value.raw.nil? || value.as_a?.try(&.empty?)
     end
@@ -65,12 +77,10 @@ module Place::DeskSource
     def self.from_asset(json : JSON::Any) : Desk?
       return unless asset = json.as_h?
       return unless id = string(asset["id"]?)
-      other_data = asset["other_data"]?.try(&.as_h?) || {} of String => JSON::Any
-
       new(
         id: id,
         name: string(asset["identifier"]?) || string(asset["name"]?) || id,
-        map_id: string(asset["map_id"]?) || string(other_data["map_id"]?) || id,
+        map_id: string(asset["map_id"]?) || id,
         zone_id: string(asset["zone_id"]?) || "",
         bookable: bool(asset["bookable"]?),
         assigned_to: string(asset["assigned_to"]?),
@@ -80,7 +90,8 @@ module Place::DeskSource
         images: strings(asset["images"]?),
         notes: string(asset["notes"]?),
         security: strings(asset["security_system_groups"]?),
-        other_data: other_data,
+        client_ids: custom(asset["client_ids"]?),
+        other_data: custom(asset["other_data"]?),
       )
     end
 
@@ -89,6 +100,18 @@ module Place::DeskSource
       id = string(desk["id"]?)
       return unless map_id = string(desk["map_id"]?) || id
       id ||= map_id
+
+      client_ids = {} of String => JSON::Any
+      other_data = {} of String => JSON::Any
+      desk.each do |key, value|
+        next if DESK_FIELDS.includes?(key)
+        if key != "homebase" && (string = value.as_s?)
+          client_ids[key] = value if string.presence
+        else
+          other_data[key] = value
+        end
+      end
+      client_ids["place_id"] = JSON::Any.new(id) if id != map_id
 
       new(
         id: id,
@@ -103,12 +126,17 @@ module Place::DeskSource
         images: strings(desk["images"]?),
         notes: string(desk["notes"]?),
         security: string(desk["security"]?).try { |group| [group] } || [] of String,
-        other_data: desk.reject { |key, _| DESK_FIELDS.includes?(key) },
+        client_ids: client_ids,
+        other_data: other_data,
       )
     end
 
     protected def self.string(value : JSON::Any?) : String?
       value.try(&.as_s?).presence
+    end
+
+    protected def self.custom(value : JSON::Any?) : Hash(String, JSON::Any)
+      value.try(&.as_h?) || {} of String => JSON::Any
     end
 
     protected def self.strings(value : JSON::Any?) : Array(String)

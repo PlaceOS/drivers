@@ -57,7 +57,7 @@ DriverSpecs.mock_driver "GoBright::LocationService" do
   # ===================================================
   settings(base_settings.merge({use_desk_assets: true}))
 
-  # the gobright desk name and departments are read from the asset other_data
+  # the gobright desk name is read from the asset client_ids, departments from other_data
   locations = exec(:device_locations, "placeos_zone_id").get.not_nil!.as_a
   locations.map { |loc| {loc["map_id"], loc["group"]} }.should eq [{"desk-1", "Finance"}, {"room-1", "none"}]
   staff_api.asset_requests.should eq [nil, "page-2"]
@@ -148,14 +148,15 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @asset_requests << next_page
 
     if next_page
-      [{id: "asset-2", identifier: "Desk 07.002", map_id: "table-07.002.status", zone_id: zone_id, other_data: {} of String => String}]
+      [{id: "asset-2", identifier: "Desk 07.002", map_id: "table-07.002.status", zone_id: zone_id, client_ids: {} of String => String}]
     else
       [{
         id:         "asset-1",
         identifier: "Desk 07.001",
         map_id:     "table-07.001.status",
         zone_id:    zone_id,
-        other_data: {gobright_desk_name: "desk-1", departments: ["Finance"]},
+        client_ids: {gobright_desk_name: "desk-1"},
+        other_data: {departments: ["Finance"]},
         next_page:  "page-2",
       }]
     end

@@ -122,23 +122,23 @@ class StaffAPI < DriverSpecs::MockDriver
   ASSETS = {
     "zone-level-1" => [
       [
-        {id: "asset-desk-1", identifier: "Desk 1", map_id: "map-desk-1", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: ["Window"], other_data: {floorsense_id: "fs-1"}},
-        {id: "asset-L1-A", identifier: "Level 1 A", map_id: "desk.1", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L1-A"}},
+        {id: "asset-desk-1", identifier: "Desk 1", map_id: "map-desk-1", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: ["Window"], client_ids: {floorsense_id: "fs-1"}},
+        {id: "asset-L1-A", identifier: "Level 1 A", map_id: "desk.1", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L1-A"}},
       ],
       [
-        {id: "asset-L1-B", identifier: "Level 1 B", map_id: "desk.5", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L1-B"}},
-        {id: "asset-L1-C", identifier: "Level 1 C", map_id: "desk.2", zone_id: "zone-level-1", bookable: false, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L1-C"}},
-        {id: "asset-L1-D", identifier: "Level 1 D", map_id: "desk.3", zone_id: "zone-level-1", bookable: true, place_groups: ["exec"], features: [] of String, other_data: {floorsense_id: "fs-L1-D"}},
-        {id: "asset-L1-E", identifier: "Level 1 E", map_id: "desk.4", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L1-E"}},
+        {id: "asset-L1-B", identifier: "Level 1 B", map_id: "desk.5", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L1-B"}},
+        {id: "asset-L1-C", identifier: "Level 1 C", map_id: "desk.2", zone_id: "zone-level-1", bookable: false, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L1-C"}},
+        {id: "asset-L1-D", identifier: "Level 1 D", map_id: "desk.3", zone_id: "zone-level-1", bookable: true, place_groups: ["exec"], features: [] of String, client_ids: {floorsense_id: "fs-L1-D"}},
+        {id: "asset-L1-E", identifier: "Level 1 E", map_id: "desk.4", zone_id: "zone-level-1", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L1-E"}},
       ],
     ],
     "zone-level-2" => [
       [
-        {id: "asset-L2-C1", identifier: "Level 2 C1", map_id: "desk.c1", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L2-C1"}},
-        {id: "asset-L2-C2", identifier: "Level 2 C2", map_id: "desk.c2", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L2-C2"}},
-        {id: "asset-L2-C3", identifier: "Level 2 C3", map_id: "desk.c3", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L2-C3"}},
-        {id: "asset-L2-A", identifier: "Level 2 A", map_id: "desk.a", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L2-A"}},
-        {id: "asset-L2-B", identifier: "Level 2 B", map_id: "desk.b", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-L2-B"}},
+        {id: "asset-L2-C1", identifier: "Level 2 C1", map_id: "desk.c1", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L2-C1"}},
+        {id: "asset-L2-C2", identifier: "Level 2 C2", map_id: "desk.c2", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L2-C2"}},
+        {id: "asset-L2-C3", identifier: "Level 2 C3", map_id: "desk.c3", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L2-C3"}},
+        {id: "asset-L2-A", identifier: "Level 2 A", map_id: "desk.a", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L2-A"}},
+        {id: "asset-L2-B", identifier: "Level 2 B", map_id: "desk.b", zone_id: "zone-level-2", bookable: true, place_groups: [] of String, features: [] of String, client_ids: {floorsense_id: "fs-L2-B"}},
       ],
     ],
   }
@@ -560,7 +560,7 @@ DriverSpecs.mock_driver "Place::Workplace" do
     desks = exec(:desks, level_id: "zone-level-1", day_offset: 0).get.as_a
     desks.map(&.["id"].as_s).should eq ["asset-desk-1", "asset-L1-B", "asset-L1-E"]
 
-    # the LLM gets the same slim desk shape as before, no asset other_data
+    # the LLM gets the same slim desk shape as before, no asset client_ids or other_data
     desk = desks.first.as_h
     desk.keys.sort!.should eq ["bookable", "features", "groups", "id", "map_id", "name"]
     desk["name"].as_s.should eq "Desk 1"

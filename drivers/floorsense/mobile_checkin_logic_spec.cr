@@ -125,7 +125,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
       JSON.parse([
         {
           id: "asset-1", identifier: "Asset Desk", zone_id: zone_id,
-          features: ["standing"], other_data: {neighbourhoodID: "north"},
+          features: ["standing"], client_ids: {neighbourhoodID: "north"},
         },
       ].to_json)
     else
