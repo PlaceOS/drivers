@@ -2658,3 +2658,4 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.warn(exception: error) { "failed to update process_state #{state} for booking #{booking.id}" }
   end
 end
+ 

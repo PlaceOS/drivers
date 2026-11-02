@@ -3732,8 +3732,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
       booking_type:    "parking",
       booking_start:   cancel_start,
       booking_end:     cancel_end,
-      asset_id:        asset,
-      asset_ids:       [asset],
+      resource_id:     asset,
+      resource_ids:    [asset],
       user_id:         "user-85001",
       user_email:      "cancel.user@example.com",
       user_name:       "Cancel User",
@@ -3772,6 +3772,33 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
   mailer.times_sent("cancel.user@example.com", "parking_request", "cancelled").should eq(1)
 
+  # events that only provide the plural resource_ids are handled too
+  mailer.reset
+  publish("staff/booking/changed", {
+    action:          "cancelled",
+    id:              85003_i64,
+    booking_type:    "parking",
+    booking_start:   cancel_start,
+    booking_end:     cancel_end,
+    resource_ids:    ["asset-inv1"],
+    user_id:         "user-85003",
+    user_email:      "cancel2.user@example.com",
+    user_name:       "Cancel User 2",
+    booked_by_email: "cancel2.user@example.com",
+    booked_by_name:  "Cancel User 2",
+    zones:           ["zone-building"],
+    created:         now - 500_i64,
+    last_changed:    now,
+    approved:        true,
+    rejected:        false,
+    deleted:         false,
+    process_state:   "access_granted_emailed",
+    extension_data:  {"location" => "INV1"},
+  }.to_json)
+  sleep 100.milliseconds
+  mailer.sent?("cancel2.user@example.com", "parking_request", "cancelled").should eq(true)
+  staff.last_state(85003_i64).should eq("cancelled_emailed")
+
   # a cancelled booking that was only ever wait-listed -> nothing is sent
   mailer.reset
   publish("staff/booking/changed", {
@@ -3780,8 +3807,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     booking_type:    "parking",
     booking_start:   cancel_start,
     booking_end:     cancel_end,
-    asset_id:        "unallocated-85002",
-    asset_ids:       ["unallocated-85002"],
+    resource_id:     "unallocated-85002",
+    resource_ids:    ["unallocated-85002"],
     user_id:         "user-85002",
     user_email:      "waitlist.user@example.com",
     user_name:       "Wait List User",
