@@ -13,13 +13,29 @@ class Place::Booking
   property booking_end : Int64
   property timezone : String?
 
-  # events use resource_id instead of asset_id
+  # events use resource_id/resource_ids instead of asset_id/asset_ids
   property asset_id : String?
   property asset_ids : Array(String) = [] of String
   property resource_id : String?
+  property resource_ids : Array(String) = [] of String
 
   def asset_id : String
-    (@asset_id || @resource_id).as(String)
+    (@asset_id || @resource_id || @asset_ids.first?).as(String)
+  end
+
+  # Staff booking events report the allocated resource(s) as resource_id /
+  # resource_ids. Normalise them onto asset_ids so callers can use the same
+  # accessors for API responses and events.
+  def after_initialize
+    return unless @asset_ids.empty?
+
+    @asset_ids = if !@resource_ids.empty?
+                   @resource_ids
+                 elsif asset = (@asset_id || @resource_id)
+                   [asset]
+                 else
+                   [] of String
+                 end
   end
 
   property user_id : String
