@@ -3,7 +3,8 @@ require "http/server"
 
 # :nodoc:
 # serves the remote desk allocation CSV. It references the original desk ids
-# in both modes, desk assets keep them as their map_id
+# in both modes, desk assets keep them as their map_id or, when the
+# metadata desk had a separate map_id, as client_ids.place_id
 ALLOCATIONS_SERVER = HTTP::Server.new do |context|
   context.response.content_type = "text/csv"
   context.response.print <<-CSV
@@ -81,7 +82,8 @@ DriverSpecs.mock_driver "Place::Desk::Allocations" do
   staff_api.asset_requests.should eq [{"zone-level-1", nil}, {"zone-level-1", "page-2"}]
 
   csv = exec(:get_desks, "GET", {} of String => Array(String), "").get.not_nil!.as_a
-  # the desk management tool keeps using the original desk ids (Asset#map_id)
+  # the desk management tool keeps using the original desk ids (Asset#map_id),
+  # asset-1 is drawn as table-1 so its original id is the client_ids.place_id
   csv[2].as_s.split("\n").reject(&.empty?).should eq [
     "desk_id,desk_name,building,level,allocation_email,desk_type",
     "desk-1,Desk 1,BLD,L1,,Student Hot Desk",
@@ -161,10 +163,13 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @asset_requests << {zone_id, next_page} if zone_id
 
     assets = DESKS.map_with_index do |desk, index|
+      # the first desk's metadata id differed from its map_id
+      client_ids = index.zero? ? {"place_id" => desk[:id]} : {} of String => String
       {
         id:            "asset-#{index + 1}",
         identifier:    desk[:name],
-        map_id:        desk[:id],
+        map_id:        index.zero? ? "table-1" : desk[:id],
+        client_ids:    client_ids,
         zone_id:       "zone-level-1",
         bookable:      desk[:bookable],
         features:      desk[:features],

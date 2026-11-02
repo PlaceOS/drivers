@@ -105,7 +105,6 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
       return [] of String
     end
 
-    
     emails = users.map { |user| user["username"].as_s.strip.downcase }
     @user_cache[id] = emails unless users.empty?
     emails

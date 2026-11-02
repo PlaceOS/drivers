@@ -27,7 +27,7 @@ class OpenAI::VoiceControlInterface < PlaceOS::Driver
   PROMPT = OpenAI::Message.new(
     :user,
     <<-MESSAGE
-    
+
     MESSAGE
   )
 

@@ -26,7 +26,7 @@ DriverSpecs.mock_driver "Place::Desk::Control" do
     use_desk_assets: true,
   })
 
-  # unmapped keys come from the asset other_data, desks without the key are skipped
+  # unmapped string keys come from the asset client_ids, desks without the key are skipped
   exec(:desk_ids).get.should eq({
     "asset-1" => "fs-1",
     "asset-2" => "fs-2",
@@ -63,11 +63,11 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
     if next_page
       [
-        {id: "asset-2", identifier: "test3", map_id: "desk-006-17", zone_id: "zone-EYEnrhbaQz", other_data: {floorsense_id: "fs-2"}},
-        {id: "asset-3", identifier: "test4", map_id: "desk-3", zone_id: "zone-EYEnrhbaQz", other_data: {} of String => String},
+        {id: "asset-2", identifier: "test3", map_id: "desk-006-17", zone_id: "zone-EYEnrhbaQz", client_ids: {floorsense_id: "fs-2"}},
+        {id: "asset-3", identifier: "test4", map_id: "desk-3", zone_id: "zone-EYEnrhbaQz", client_ids: {} of String => String},
       ]
     else
-      [{id: "asset-1", identifier: "test2", map_id: "desk-77123", zone_id: "zone-EYEnrhbaQz", other_data: {floorsense_id: "fs-1"}, next_page: "page-2"}]
+      [{id: "asset-1", identifier: "test2", map_id: "desk-77123", zone_id: "zone-EYEnrhbaQz", client_ids: {floorsense_id: "fs-1"}, next_page: "page-2"}]
     end
   end
 

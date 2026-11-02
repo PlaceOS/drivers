@@ -50,7 +50,13 @@ DriverSpecs.mock_driver "Place::AreaManagement" do
   staff_api.children_requests.should contain({"zone-building", "desks"})
   staff_api.asset_requests.should be_empty
 
-  exec(:request_level_locations, "zone-level-1").get
+  # mock drivers can take a moment to register their functions, so retry until
+  # the level has been processed
+  20.times do
+    exec(:request_level_locations, "zone-level-1").get
+    break if status["zone-level-1:desk_bookings"]?.try(&.["desk-1"]?)
+    sleep 250.milliseconds
+  end
   status["zone-level-1:desk_ids"].should eq ["desk-1", "desk-2"]
   # the floorsense desk id is mapped to the metadata desk
   locations = status["zone-level-1"]["value"].as_a
@@ -73,7 +79,13 @@ DriverSpecs.mock_driver "Place::AreaManagement" do
   staff_api.asset_requests.should contain({["zone-building"], nil, "page-2"})
   staff_api.asset_requests.should contain({nil, "zone-level-1", nil})
 
-  exec(:request_level_locations, "zone-level-1").get
+  # mock drivers can take a moment to register their functions, so retry until
+  # the level has been processed
+  20.times do
+    exec(:request_level_locations, "zone-level-1").get
+    break if status["zone-level-1:desk_bookings"]?.try(&.["asset-2"]?)
+    sleep 250.milliseconds
+  end
   # assets are placed on the map using their map_id
   status["zone-level-1:desk_ids"].should eq ["table-1", "table-2"]
   locations = status["zone-level-1"]["value"].as_a
@@ -144,9 +156,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @asset_requests << {zones, zone_id, next_page}
 
     if next_page
-      [{id: "asset-2", identifier: "desk-2", map_id: "table-2", zone_id: "zone-level-1", other_data: {floorsensedeskid: "fs-2"}}]
+      [{id: "asset-2", identifier: "desk-2", map_id: "table-2", zone_id: "zone-level-1", client_ids: {floorsensedeskid: "fs-2"}}]
     else
-      [{id: "asset-1", identifier: "desk-1", map_id: "table-1", zone_id: "zone-level-1", other_data: {floorsensedeskid: "fs-1"}, next_page: "page-2"}]
+      [{id: "asset-1", identifier: "desk-1", map_id: "table-1", zone_id: "zone-level-1", client_ids: {floorsensedeskid: "fs-1"}, next_page: "page-2"}]
     end
   end
 end

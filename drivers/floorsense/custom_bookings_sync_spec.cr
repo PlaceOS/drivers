@@ -1,5 +1,6 @@
 require "placeos-driver/spec"
 require "./models"
+require "../place/desk_source"
 
 class StaffAPIMock < DriverSpecs::MockDriver
   def metadata(id : String, key : String? = nil)
@@ -8,7 +9,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
         name:      "desks",
         parent_id: id,
         details:   [
-          {id: "desk-1", name: "Desk 1", floorsense_id: "fs-1", neighbourhoodID: "north", features: ["standing"]},
+          {id: "desk-1", name: "Desk 1", floorsense_id: "fs-1", neighbourhoodID: "north", features: ["standing"], homebase: "zone-home", tags: ["quiet"]},
           {id: "desk-2", name: "Desk 2", floorsense_id: "fs-2"},
           # no floorsense id, not synced
           {id: "desk-3", name: "Desk 3"},
@@ -38,14 +39,15 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
     if next_page == "page-2"
       JSON.parse([
-        {id: "asset-2", identifier: "desk-2", map_id: "desk-2", zone_id: zone_id, other_data: {floorsense_id: "fs-2"}},
-        {id: "asset-3", identifier: "desk-3", map_id: "desk-3", zone_id: zone_id, other_data: {} of String => String},
+        {id: "asset-2", identifier: "desk-2", map_id: "desk-2", zone_id: zone_id, client_ids: {floorsense_id: "fs-2"}},
+        {id: "asset-3", identifier: "desk-3", map_id: "desk-3", zone_id: zone_id, client_ids: {} of String => String},
       ].to_json)
     else
       JSON.parse([
         {
           id: "asset-1", identifier: "desk-1", map_id: "desk-1", zone_id: zone_id, next_page: "page-2",
-          features: ["standing"], other_data: {floorsense_id: "fs-1", neighbourhoodID: "north"},
+          features: ["standing"], client_ids: {floorsense_id: "fs-1", neighbourhoodID: "north"},
+          other_data: {homebase: "zone-home", tags: ["quiet"]},
         },
       ].to_json)
     end
@@ -94,11 +96,37 @@ DriverSpecs.mock_driver "Floorsense::CustomBookingsSync" do
     meta_ext_mappings:     {
       "neighbourhoodID" => "neighbourhood",
       "features"        => "deskAttributes",
+      "homebase"        => "homebase",
+      "tags"            => "tags",
     },
     meta_ext_static: {"source" => "placeos"},
     use_desk_assets: false,
   }
   settings(base_settings)
+
+  it "should split desk metadata custom keys like the desk asset migration" do
+    desk = Place::DeskSource::Desk.from_metadata(JSON.parse({
+      id: "desk-1", map_id: "table-1", name: "Desk 1", floorsense_id: "fs-1", empty_id: "",
+      homebase: "zone-home", tags: ["quiet"], position: {x: 1},
+    }.to_json), "zone-level").not_nil!
+
+    # string ids, and the metadata id when it differs from the map_id, are client ids
+    desk.client_ids.should eq({"floorsense_id" => JSON::Any.new("fs-1"), "place_id" => JSON::Any.new("desk-1")})
+    desk.other_data.should eq({
+      "homebase" => JSON::Any.new("zone-home"),
+      "tags"     => JSON.parse(%(["quiet"])),
+      "position" => JSON.parse(%({"x":1})),
+    })
+    desk.legacy_id.should eq "desk-1"
+    desk["floorsense_id"]?.should eq JSON::Any.new("fs-1")
+    desk["homebase"]?.should eq JSON::Any.new("zone-home")
+    desk.value("tags").should eq JSON.parse(%(["quiet"]))
+
+    # without a separate map_id the desk id is the legacy id
+    desk = Place::DeskSource::Desk.from_metadata(JSON.parse({id: "desk-2"}.to_json), "zone-level").not_nil!
+    desk.client_ids.should be_empty
+    desk.legacy_id.should eq "desk-2"
+  end
 
   it "should map desk metadata to floorsense desks" do
     lookup = Hash(String, Floorsense::DeskMeta).from_json exec(:placeos_desk_metadata, "zone-level", "zone-building").get.to_json
@@ -116,6 +144,8 @@ DriverSpecs.mock_driver "Floorsense::CustomBookingsSync" do
       "floorsense_id"  => JSON::Any.new("fs-1"),
       "neighbourhood"  => JSON::Any.new("north"),
       "deskAttributes" => JSON.parse(%(["standing"])),
+      "homebase"       => JSON::Any.new("zone-home"),
+      "tags"           => JSON.parse(%(["quiet"])),
       "source"         => JSON::Any.new("placeos"),
     })
 
@@ -143,6 +173,8 @@ DriverSpecs.mock_driver "Floorsense::CustomBookingsSync" do
       "floorsense_id"  => JSON::Any.new("fs-1"),
       "neighbourhood"  => JSON::Any.new("north"),
       "deskAttributes" => JSON.parse(%(["standing"])),
+      "homebase"       => JSON::Any.new("zone-home"),
+      "tags"           => JSON.parse(%(["quiet"])),
       "source"         => JSON::Any.new("placeos"),
     })
     lookup["fs-2"].place_id.should eq "asset-2"

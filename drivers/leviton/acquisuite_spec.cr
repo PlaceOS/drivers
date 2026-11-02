@@ -32,7 +32,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
 
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY
   Content-Disposition: form-data; name="MODE"
-  
+
   CONFIGFILEMANIFEST
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY--
   BODY
