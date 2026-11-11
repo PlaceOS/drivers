@@ -5,7 +5,9 @@ require "place_calendar"
 class Place::ImageUploader < PlaceOS::Driver
   descriptive_name "Image Uploader"
   generic_name :ImageUploader
-  description %(takes images from digitial signage playlists and applies them as standby images)
+  description %(takes images from digitial signage playlists and applies them as standby images.
+    In joinable rooms, where the system contains the remote rooms receivers, configure a
+    `local_decoders` system or zone setting listing the rooms receivers i.e. ["Decoder_1", "Decoder_2"])
 
   accessor location_services : LocationServices_1
   accessor staff_api : StaffAPI_1
@@ -59,7 +61,12 @@ class Place::ImageUploader < PlaceOS::Driver
       end
 
       # apply the images to the displays in the system
-      receivers = system(system_id).implementing(Interface::StandbyImage)
+      receivers = system(system_id).implementing(Interface::StandbyImage).to_a
+
+      # limit to the rooms receivers, if configured
+      if local = local_decoders(system_id)
+        receivers.select! { |receiver| local.includes?("#{receiver.module_name}_#{receiver.index}") }
+      end
       logger.debug { "found #{receivers.size} devices to apply images" }
 
       list_len = playlist.size
@@ -81,5 +88,16 @@ class Place::ImageUploader < PlaceOS::Driver
         receiver.set_background_image(url)
       end
     end
+  end
+
+  # the receivers that belong to the room (i.e. `Decoder_1`), configured using
+  # the `local_decoders` system or zone setting. Joinable rooms need this as
+  # their systems also contain the remote rooms receivers.
+  # nil if not configured, all receivers in the system belong to the room.
+  protected def local_decoders(system_id : String) : Array(String)?
+    staff_api.system_settings(system_id, "local_decoders").get.as_a?.try &.map(&.as_s)
+  rescue error
+    logger.warn(exception: error) { "unable to determine the local decoders of #{system_id}, applying images to all" }
+    nil
   end
 end

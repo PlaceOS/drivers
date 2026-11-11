@@ -41,6 +41,11 @@ class StaffAPIMock < DriverSpecs::MockDriver
   def signage_download_url(id : String, ext : String = "png")
     "https://background.image/url.#{ext}"
   end
+
+  # a joinable room, where Decoder_1 belongs to the remote room
+  def system_settings(id : String, key : String)
+    key == "local_decoders" ? ["Decoder_2"] : nil
+  end
 end
 
 DriverSpecs.mock_driver "Place::ImageUploader" do
@@ -58,10 +63,11 @@ DriverSpecs.mock_driver "Place::ImageUploader" do
   # requests the remote system config to order them, the spec runner doesn't
   # answer `Sys` requests, so each call blocks on the ~2-4 minute protocol timeout.
 
-  # apply_exactly: one image in the playlist, so only the first decoder is updated
+  # only the rooms local decoders are updated and apply_exactly counts those:
+  # one image in the playlist and one local decoder
   settings({apply_exactly: true})
   exec(:manual_update).get
 
-  encoder1["background_image"]?.should eq "https://background.image/url.jpg"
-  encoder2["background_image"]?.should be_nil
+  encoder1["background_image"]?.should be_nil
+  encoder2["background_image"]?.should eq "https://background.image/url.jpg"
 end
