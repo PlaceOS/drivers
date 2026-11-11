@@ -52,9 +52,16 @@ DriverSpecs.mock_driver "Place::ImageUploader" do
 
   # local instances of the encoder mocks
   encoder1 = system(:Decoder_1).as(DecoderMock)
-  encoder2 = system(:Decoder_1).as(DecoderMock)
+  encoder2 = system(:Decoder_2).as(DecoderMock)
+
+  # NOTE: only one manual_update per spec. With multiple receivers the driver
+  # requests the remote system config to order them, the spec runner doesn't
+  # answer `Sys` requests, so each call blocks on the ~2-4 minute protocol timeout.
+
+  # apply_exactly: one image in the playlist, so only the first decoder is updated
+  settings({apply_exactly: true})
   exec(:manual_update).get
 
   encoder1["background_image"]?.should eq "https://background.image/url.jpg"
-  encoder2["background_image"]?.should eq "https://background.image/url.jpg"
+  encoder2["background_image"]?.should be_nil
 end

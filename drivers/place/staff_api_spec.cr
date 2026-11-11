@@ -1,4 +1,5 @@
 require "placeos-driver/spec"
+require "base64"
 
 DriverSpecs.mock_driver "Place::StaffAPI" do
   resp = exec(:query_bookings, "desk")
@@ -172,4 +173,18 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
   end
 
   updated.get["assigned_to"].should eq "steve@place.tech"
+
+  # signage download URLs are fetched by other drivers that don't apply our
+  # host_header, so they must use the public domain, not the internal ingress URI
+  settings({
+    api_key:              "key-1234",
+    host_header:          "placeos.example.com",
+    disable_event_notify: true,
+  })
+  sleep 1.second
+  upload_id = Base64.urlsafe_encode("uploads-1234", padding: false)
+  api_key = Base64.urlsafe_encode("key-1234", padding: false)
+  exec(:signage_download_url, "uploads-1234", "png").get.should eq(
+    "https://placeos.example.com/api/engine/v2/uploads/#{upload_id}/download/#{api_key}/false/i.png"
+  )
 end

@@ -23,10 +23,11 @@ class Place::ImageUploader < PlaceOS::Driver
   @apply_exactly : Bool = false
 
   def on_update
+    @apply_exactly = setting?(Bool, :apply_exactly) || false
+
     signage_sync_cron = setting?(String, :signage_sync_cron)
     return unless signage_sync_cron
 
-    apply_exactly = setting?(Bool, :apply_exactly) || false
     timezone = config.control_system.try(&.timezone).presence
     location = timezone ? Time::Location.load(timezone) : Time::Location.local
 
