@@ -34,6 +34,10 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     # how often to poll the occupancy state (the long poll is unreliable)
     occupancy_poll_sec: 10,
+
+    # remove the underscore prefix to enable a scheduled reboot
+    _reboot_cron:     "0 3 * * *",
+    _reboot_timezone: "Australia/Sydney",
   })
 
   # never poll the occupancy state more often than this
@@ -93,6 +97,65 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     schedule.every(@poll_every) { request_poll }
     schedule.in(1.second) { authenticate } unless @authenticating
     @authenticating = true
+
+    # `schedule.clear` above cancels the reboot task, so re-arm it here
+    schedule_reboot
+  end
+
+  @reboot_task : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+
+  # Optionally reboot the device on a schedule, configured via the
+  # `reboot_cron` (a CRON string) and `reboot_timezone` (IANA name) settings.
+  # `reboot` applies a random delay of up to 5 seconds so a fleet of devices
+  # sharing a schedule don't all drop off the network at the same instant.
+  protected def schedule_reboot : Nil
+    @reboot_task.try(&.cancel)
+    @reboot_task = nil
+
+    cron = setting?(String, :reboot_cron).presence
+    return unless cron
+
+    timezone = setting?(String, :reboot_timezone).presence || "Australia/Sydney"
+
+    begin
+      location = Time::Location.load(timezone)
+    rescue error
+      logger.error(exception: error) { "unknown reboot_timezone #{timezone.inspect}, ignoring reboot schedule" }
+      return
+    end
+
+    begin
+      @reboot_task = schedule.cron(cron, location) { reboot }
+      logger.info { "reboot scheduled: #{cron} (#{timezone})" }
+    rescue error
+      logger.error(exception: error) { "invalid reboot_cron #{cron.inspect}" }
+    end
+  end
+
+  # the device has no websocket, so the reboot is requested via the REST API
+  # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/DeviceOperations.htm
+  @[Security(Level::Administrator)]
+  def reboot(now : Bool = false) : Nil
+    sleep rand(5000).milliseconds unless now
+    authenticate unless authenticated?
+
+    response = request_reboot
+    # retry after authenticating
+    if response.status_code == 301
+      authenticate
+      response = request_reboot
+    end
+    raise "reboot failed, unexpected response code: #{response.status_code}" unless response.success?
+    logger.info { "reboot requested" }
+  end
+
+  protected def request_reboot
+    post(
+      "/Device/DeviceOperations/Reboot",
+      body: {Device: {DeviceOperations: {Reboot: true}}}.to_json,
+      headers: HTTP::Headers{"CREST-XSRF-TOKEN" => xsrf_token},
+      concurrent: true,
+    )
   end
 
   # records a raw sensor reading against the smoother

@@ -240,4 +240,30 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
   # the polled IsRoomOccupied reading was recorded
   exec(:update_sensor).get
   status[:raw_occupied].should be_true
+
+  puts "==> reboot via the REST API"
+
+  resp = exec(:reboot, now: true)
+  rebooted = false
+  10.times do
+    expect_http_request(timeout: 3.seconds) do |request, response|
+      case request.path
+      when "/Device/DeviceOperations/Reboot"
+        request.method.should eq "POST"
+        JSON.parse(request.body.not_nil!.gets_to_end).should eq JSON.parse(%({"Device":{"DeviceOperations":{"Reboot":true}}}))
+        rebooted = true
+        response.status_code = 200
+        # the response isn't documented and isn't parsed, only the status code matters
+        response << %({})
+      when "/Device/Longpoll"
+        response.status_code = 200
+        response << %({"Device":"Response Timeout"})
+      else
+        response.status_code = 404
+      end
+    end
+    break if rebooted
+  end
+  rebooted.should be_true
+  resp.get
 end
