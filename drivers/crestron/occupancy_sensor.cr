@@ -132,7 +132,9 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     end
   end
 
-  # the device has no websocket, so the reboot is requested via the REST API
+  # the device has no websocket, so the reboot is requested via the REST API.
+  # Changes are POSTed to `/Device` (like the NVX's), posting to the property
+  # path `/Device/DeviceOperations/Reboot` returned a 500 on a CEN-ODT-C-POE.
   # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/DeviceOperations.htm
   @[Security(Level::Administrator)]
   def reboot(now : Bool = false) : Nil
@@ -145,15 +147,18 @@ class Crestron::OccupancySensor < PlaceOS::Driver
       authenticate
       response = request_reboot
     end
-    raise "reboot failed, unexpected response code: #{response.status_code}" unless response.success?
-    logger.info { "reboot requested" }
+    raise "reboot failed, unexpected response code: #{response.status_code}\n#{response.body}" unless response.success?
+    logger.info { "reboot requested: #{response.body}" }
   end
 
   protected def request_reboot
+    headers = HTTP::Headers{"Content-Type" => "application/json"}
+    headers["CREST-XSRF-TOKEN"] = xsrf_token unless xsrf_token.empty?
+
     post(
-      "/Device/DeviceOperations/Reboot",
+      "/Device",
       body: {Device: {DeviceOperations: {Reboot: true}}}.to_json,
-      headers: HTTP::Headers{"CREST-XSRF-TOKEN" => xsrf_token},
+      headers: headers,
       concurrent: true,
     )
   end

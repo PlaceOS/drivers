@@ -248,7 +248,7 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
   10.times do
     expect_http_request(timeout: 3.seconds) do |request, response|
       case request.path
-      when "/Device/DeviceOperations/Reboot"
+      when "/Device"
         request.method.should eq "POST"
         JSON.parse(request.body.not_nil!.gets_to_end).should eq JSON.parse(%({"Device":{"DeviceOperations":{"Reboot":true}}}))
         rebooted = true
