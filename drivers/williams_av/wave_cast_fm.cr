@@ -15,6 +15,13 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
     channel_number: 0,
 
     hearing_notice_text: "Hearing augmentation code:",
+
+    # remove the underscore prefix to enable a scheduled reboot.
+    # NOTE:: multi-channel devices (i.e. WaveCAST Eight) are shared by a module
+    # per channel and a reboot affects every channel, so only configure this on
+    # one of the modules controlling the device.
+    _reboot_cron:     "0 3 * * 0",
+    _reboot_timezone: "Australia/Sydney",
   })
 
   @hearing_notice_text : String = "Hearing augmentation code:"
@@ -26,6 +33,37 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
 
     # ensure query run at the same time for offset to work
     schedule.cron("* * * * *") { connected }
+
+    # `schedule.clear` above cancels the reboot task, so re-arm it here
+    schedule_reboot
+  end
+
+  # Optionally reboot the device on a schedule, configured via the
+  # `reboot_cron` (a CRON string) and `reboot_timezone` (IANA name) settings.
+  # A random delay of up to 5 seconds is applied so a fleet of devices sharing
+  # a schedule don't all drop off the network at the same instant.
+  protected def schedule_reboot : Nil
+    cron = setting?(String, :reboot_cron).presence
+    return unless cron
+
+    timezone = setting?(String, :reboot_timezone).presence || "Australia/Sydney"
+
+    begin
+      location = Time::Location.load(timezone)
+    rescue error
+      logger.error(exception: error) { "unknown reboot_timezone #{timezone.inspect}, ignoring reboot schedule" }
+      return
+    end
+
+    begin
+      schedule.cron(cron, location) do
+        sleep rand(5000).milliseconds
+        reboot
+      end
+      logger.info { "reboot scheduled: #{cron} (#{timezone})" }
+    rescue error
+      logger.error(exception: error) { "invalid reboot_cron #{cron.inspect}" }
+    end
   end
 
   def channel_offset

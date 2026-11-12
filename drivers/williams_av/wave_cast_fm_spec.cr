@@ -1,6 +1,6 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "MessageMedia::SMS" do
+DriverSpecs.mock_driver "WilliamsAV::WaveCastFM" do
   # select channel
   expect_http_request do |request, response|
     data = request.body.try(&.gets_to_end)
@@ -84,6 +84,19 @@ TT_STRING, TDSTR_LAST_LOGGED_ERROR, 981868965 ERR_WEB_404_RESPONSE
       response.status_code = 400
       response << "badly formatted"
     end
+  end
+  retval.get.should eq(1)
+
+  # a scheduled reboot can be configured, invalid schedules are ignored
+  settings({channel_number: 0, reboot_cron: "0 3 * * 0", reboot_timezone: "Australia/Darwin"})
+  settings({channel_number: 0, reboot_cron: "0 3 * * 0", reboot_timezone: "Not/AZone"})
+  settings({channel_number: 0, reboot_cron: "not a cron"})
+
+  retval = exec(:reboot)
+  expect_http_request do |request, response|
+    request.path.should eq "/TBL-WRITE"
+    request.body.try(&.gets_to_end).should eq "type=TT_U8&id=TDU8_CURRENT_CHANNEL&value=0&type=TT_U8&id=TDU8_REBOOT&value=1"
+    response.status_code = 201
   end
   retval.get.should eq(1)
 end
