@@ -147,6 +147,10 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # both car spaces share the carpriority zone, so the smaller-height space
   # (car_b, 1.95m) is preferred over car_a (2.1m) to keep taller spaces free
   staff.last_update_for(1001_i64).should eq("asset-car_b")
+  # allocation must not resend the full extension_data snapshot: it may be
+  # stale and would clobber the notification ledger / email counter
+  staff.update_extension_data_for(1001_i64).should be_nil
+  staff.patched_ext_value(1001_i64, "location").should eq(JSON::Any.new("BM2.002"))
   gallagher.access_for("ch-normal").should contain("gallagher-group1")
   # approval email uses the per-area trigger (Open Basement -> gallagher-group1)
   mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
@@ -5263,6 +5267,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.set_bookings("[]")
 
   t111_far_start = now + 3600_i64 * 24 * 30
+  # events report resources rather than assets; the driver must still recognise
+  # the allocation and re-read the persisted booking before emailing
   manual_event = ->(state : String?) do
     {
       action:          "approved",
@@ -5270,8 +5276,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
       booking_type:    "parking",
       booking_start:   t111_far_start,
       booking_end:     t111_far_start + 3600_i64,
-      asset_id:        "asset-t111c",
-      asset_ids:       ["asset-t111c"],
+      resource_id:     "asset-t111c",
+      resource_ids:    ["asset-t111c"],
       user_id:         "user-111003",
       user_email:      "after.hours@example.com",
       user_name:       "After Hours",
@@ -5287,14 +5293,17 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
       extension_data:  ext_manual_car,
     }
   end
+  # reachable by get_booking, but not by the sweep (outside its window)
+  staff.set_lookup_bookings([manual_event.call(nil)].to_json)
 
   publish("staff/booking/changed", manual_event.call(nil).to_json)
   sleep 200.milliseconds
   mailer.times_sent("after.hours@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
   staff.last_state(111003_i64).should eq("access_granted_emailed")
 
-  # a repeat event (carrying the now-persisted state) does not re-send
-  publish("staff/booking/changed", manual_event.call("access_granted_emailed").to_json)
+  # a repeat event with a STALE process_state still re-reads the persisted
+  # state/ledger and does not re-send
+  publish("staff/booking/changed", manual_event.call(nil).to_json)
   sleep 200.milliseconds
   mailer.times_sent("after.hours@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
 
@@ -5450,6 +5459,9 @@ end
 class StaffAPIMock < DriverSpecs::MockDriver
   @assets_json : String = "[]"
   @bookings_json : String = "[]"
+  # bookings findable by get_booking even when they fall outside the sweep
+  # window (query_bookings fixture above does not filter by period)
+  @lookup_bookings : Array(JSON::Any) = [] of JSON::Any
   @updates : Hash(Int64, String) = {} of Int64 => String
   @approved_set : Array(Int64) = [] of Int64
   # process_state keyed by "id:instance" so per-recurring-instance state is
@@ -5471,6 +5483,11 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
   def set_bookings(json : String)
     @bookings_json = json
+  end
+
+  # Make bookings available to get_booking without exposing them to the sweep.
+  def set_lookup_bookings(json : String)
+    @lookup_bookings = JSON.parse(json).as_a
   end
 
   # bookings returned for a query against a zone OTHER than the building (the
@@ -5507,6 +5524,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @update_attempts = {} of Int64 => Int32
     @created_bookings = [] of JSON::Any
     @created_ids = {} of String => Int64
+    @lookup_bookings = [] of JSON::Any
   end
 
   # when true, query_bookings raises (simulating the staff API erroring)
@@ -5566,7 +5584,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
   # a string value out of the extension_data the driver last wrote for a booking.
   # nil when the booking was never updated, or the key was not set
   def extension_data_key(booking_id : Int64, key : String, instance : Int64? = nil) : String?
-    @update_extension_data["#{booking_id}:#{instance}"]?.try(&.[key]?).try(&.as_s?)
+    @update_extension_data["#{booking_id}:#{instance}"]?.try(&.[key]?).try(&.as_s?) ||
+      @ext_patches[state_key(booking_id, instance)]?.try(&.[key]?).try(&.as_s?)
   end
 
   def approved_instance?(booking_id : Int64, instance : Int64?) : Bool
@@ -5606,6 +5625,13 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
   def last_update_for(booking_id : Int64) : String?
     @updates[booking_id]?
+  end
+
+  def update_extension_data_for(booking_id : Int64) : JSON::Any?
+    @update_extension_data.each do |key, value|
+      return value if key.starts_with?("#{booking_id}:")
+    end
+    nil
   end
 
   def approved : Array(Int64)
@@ -5694,28 +5720,35 @@ class StaffAPIMock < DriverSpecs::MockDriver
     # extension_data, mirroring how the backend reflects booking_state /
     # booking_extension_data writes on the next fetch
     source = source.select { |b| b["user_email"]?.try(&.as_s?) == email } if email
-    bookings = source.map do |booking|
-      id = booking["id"].as_i64
-      inst = booking["instance"]?.try(&.as_i64?)
-      state = @states[state_key(id, inst)]?
-      patches = @ext_patches[state_key(id, inst)]?
-      next booking unless state || patches
-      hash = booking.as_h.dup
-      hash["process_state"] = JSON::Any.new(state) if state
-      if patches
-        ext = hash["extension_data"]?.try(&.as_h?).try(&.dup) || {} of String => JSON::Any
-        patches.each { |patch_key, value| ext[patch_key] = value }
-        hash["extension_data"] = JSON::Any.new(ext)
-      end
-      JSON::Any.new(hash)
-    end
-    JSON::Any.new(bookings)
+    JSON::Any.new(source.map { |booking| with_persisted_state(booking) })
   end
 
   def get_booking(booking_id : String | Int64, instance : Int64? = nil)
-    bookings = JSON.parse(@bookings_json).as_a
-    found = bookings.find { |b| b["id"].as_i64 == booking_id.to_s.to_i64 }
-    found || JSON::Any.new({} of String => JSON::Any)
+    source = @lookup_bookings + JSON.parse(@bookings_json).as_a + @created_bookings
+    found = source.find do |booking|
+      booking["id"]?.try(&.as_i64?) == booking_id.to_s.to_i64 &&
+        (instance.nil? || booking["instance"]?.try(&.as_i64?) == instance)
+    end
+    found ? with_persisted_state(found, instance) : JSON::Any.new({} of String => JSON::Any)
+  end
+
+  # Overlay the persisted state / extension data the driver has written, as the
+  # backend would on a re-fetch.
+  protected def with_persisted_state(booking : JSON::Any, instance : Int64? = nil) : JSON::Any
+    id = booking["id"].as_i64
+    inst = instance || booking["instance"]?.try(&.as_i64?)
+    state = @states[state_key(id, inst)]?
+    patches = @ext_patches[state_key(id, inst)]?
+    return booking unless state || patches
+
+    hash = booking.as_h.dup
+    hash["process_state"] = JSON::Any.new(state) if state
+    if patches
+      ext = hash["extension_data"]?.try(&.as_h?).try(&.dup) || {} of String => JSON::Any
+      patches.each { |patch_key, value| ext[patch_key] = value }
+      hash["extension_data"] = JSON::Any.new(ext)
+    end
+    JSON::Any.new(hash)
   end
 
   # bookings created via create_booking this test (mirrors them into queries)

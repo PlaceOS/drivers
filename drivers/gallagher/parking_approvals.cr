@@ -589,10 +589,34 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Gallagher access grant stays with the sweep — it is applied once the
   # booking enters the window, like every other allocation. Bookings inside
   # the window are skipped here: the sweep this same event triggers handles
-  # them (approval, email AND access) via handle_allocated_booking. Repeat
-  # events carry the persisted process_state / notification ledger, so the
-  # guards in approved_email keep this to a single email.
-  protected def notify_manual_allocation(booking : Booking) : Nil
+  # them (approval, email AND access) via handle_allocated_booking.
+  #
+  # The event payload is only a point-in-time snapshot and can be stale: a
+  # state write / user edit may have already advanced the booking, and the
+  # state-change event produced by this send can arrive without the ledger
+  # entry written afterwards. Always re-read the persisted booking and let its
+  # process_state / notification ledger decide whether the email is still owed.
+  # The lock keeps two events from both reading the pre-send state.
+  @manual_allocation_mutex : Mutex = Mutex.new
+
+  protected def notify_manual_allocation(event : Booking) : Nil
+    @manual_allocation_mutex.synchronize do
+      notify_manual_allocation_locked(event)
+    end
+  rescue error
+    logger.warn(exception: error) { "failed to process manually allocated booking #{event.id}" }
+  end
+
+  protected def notify_manual_allocation_locked(event : Booking) : Nil
+    return unless event.approved
+    return if event.rejected || event.deleted
+
+    booking = Booking.from_json(
+      with_retry("fetch booking #{event.id} for manual allocation") do
+        staff_api.get_booking(event.id, event.instance).get_json
+      end
+    )
+
     return unless booking.approved
     return if booking.rejected || booking.deleted
     return if booking.process_state == "access_granted_emailed"
@@ -616,7 +640,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     update_state(booking, "access_granted") unless booking.process_state == "access_granted"
     approved_email(booking, space)
   rescue error
-    logger.warn(exception: error) { "failed to process manually allocated booking #{booking.id}" }
+    logger.warn(exception: error) { "failed to process manually allocated booking #{event.id}" }
   end
 
   # ===================================
@@ -1856,10 +1880,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
           booking_id: booking.id,
           asset_id: space.id,
           instance: booking.instance,
-          extension_data: booking.extension_data,
           zones: space.zones,
         ).get_json
       end
+      persist_allocation_metadata(booking)
     rescue error
       if clash_error?(error)
         logger.warn { "space #{space.id} is already booked for booking #{booking.id} (server clash); trying another space" }
@@ -2023,15 +2047,40 @@ class Place::Parking::Approvals < PlaceOS::Driver
         booking_id: booking.id,
         asset_id: space.id,
         instance: booking.instance,
-        extension_data: booking.extension_data
       ).get_json
     end
+    persist_allocation_metadata(booking)
 
     booking.asset_id = space.id
     booking.asset_ids = [space.id]
     (current_allocations[space.id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
   rescue error
     logger.warn(exception: error) { "failed to restore booking #{booking.id} to space #{space.id}; leaving unallocated for re-allocation" }
+  end
+
+  # Allocation only owns the space metadata. Patch these keys in isolation so a
+  # stale booking snapshot can never overwrite the notification ledger or the
+  # email counter — the staff API merges the supplied extension_data into the
+  # persisted booking, so sending the whole hash would undo concurrent writes.
+  protected def persist_allocation_metadata(booking : Booking) : Nil
+    metadata = {} of String => JSON::Any
+    if location = booking.extension_data["location"]?
+      metadata["location"] = location
+    end
+    if group = booking.extension_data["parking_group"]?
+      metadata["parking_group"] = group
+    end
+    return if metadata.empty?
+
+    with_retry("persist allocation metadata for booking #{booking.id}") do
+      staff_api.booking_extension_data(
+        booking.id,
+        metadata,
+        instance: booking.instance,
+      ).get
+    end
+  rescue error
+    logger.warn(exception: error) { "failed to persist allocation metadata for booking #{booking.id}" }
   end
 
   # ===================================
@@ -2658,4 +2707,3 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.warn(exception: error) { "failed to update process_state #{state} for booking #{booking.id}" }
   end
 end
- 
