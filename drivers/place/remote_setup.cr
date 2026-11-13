@@ -3,13 +3,15 @@ require "./remote_setup_models"
 
 # Lets a person set up a Booking Panel, Control or Signage device from a phone.
 #
-# A device on its setup screen calls `register`, then waits for a configure
-# command in the `device_<id>` binding. The setup flow (Concierge or Signage
-# Manager) calls `configure`. The device applies the command and calls `complete`.
+# A device on its setup screen calls `register`. The setup flow (Concierge or
+# Signage Manager) calls `configure`, which puts a command in the `device_<id>`
+# binding. The device applies the command and calls `complete`. A device that
+# is set up also applies commands, so `configure` and `complete` work for
+# devices that did not register.
 #
-# A device that is set up does not call the driver. It clears its configuration
-# when its ID is in `clear_list` (from `clear`), or when its app and system are
-# in `clear_systems` (from `clear_system`).
+# A device that is set up clears its configuration when its ID is in
+# `clear_list` (from `clear`), or when its app and system are in
+# `clear_systems` (from `clear_system`).
 #
 # Interface: https://github.com/PlaceOS/user-interfaces/blob/develop/docs/remote-setup.md
 class Place::RemoteSetup < PlaceOS::Driver
@@ -27,13 +29,13 @@ class Place::RemoteSetup < PlaceOS::Driver
     command_ttl_minutes: 15,
   })
 
-  # Most entries in each of `devices`, `clear_list` and `clear_systems`
+  # Most entries in each of `devices`, pending commands, `clear_list` and `clear_systems`
   MAX_ENTRIES = 1000
   # Most time between a change and the `devices` binding update
   PUBLISH_INTERVAL = 1.second
 
   @devices = {} of String => Device
-  # Pending configure command of each device, by device ID
+  # Pending configure command of each device, by device ID. Oldest first
   @commands = {} of String => Command
   # IDs of the devices to clear, with the time they were added. Oldest first
   @clear_list = {} of String => Int64
@@ -89,16 +91,20 @@ class Place::RemoteSetup < PlaceOS::Driver
     publish_clear_list if @clear_list.delete(device_id)
   end
 
-  # Called by the setup flow. Returns the command ID
+  # Called by the setup flow. Returns the command ID. The device does not have
+  # to be in `devices`, because a device that is set up does not register.
   @[Security(Level::Support)]
   def configure(device_id : String, config : Config) : String
+    RemoteSetupModels.check_id("device_id", device_id)
     config.validate!
-    raise ArgumentError.new("device not found: #{device_id}") unless @devices.has_key?(device_id)
     logger.info { "#{invoked_by_user_id} configured #{device_id} with #{config.to_json}" }
 
     command = Command.new(config, Time.utc.to_unix_ms)
+    # Delete first, so that the command moves to the end
+    @commands.delete(device_id)
     @commands[device_id] = command
     self[command_binding(device_id)] = command
+    remove_command(@commands.first_key) if @commands.size > MAX_ENTRIES
     command.id
   end
 
@@ -127,18 +133,25 @@ class Place::RemoteSetup < PlaceOS::Driver
     publish_clear_systems
   end
 
-  # Called by a device after it applies a configure command
-  def complete(device_id : String, command_id : String) : Nil
+  # Called by a device after it applies a configure command. `app` adds a
+  # device that did not register to `devices`.
+  def complete(device_id : String, command_id : String, app : App? = nil) : Nil
     command = @commands[device_id]?
     return unless command && command.id == command_id
 
     remove_command(device_id)
-    if device = @devices[device_id]?
-      device.config = command.config
-      device.last_command = command.id
-      device.last_seen = Time.utc.to_unix_ms
-      @devices_changed = true
+    now = Time.utc.to_unix_ms
+    device = @devices[device_id]?
+    if device.nil? && app
+      device = @devices[device_id] = Device.new(device_id, app, now)
+      remove_oldest_devices
     end
+    return unless device
+
+    device.config = command.config
+    device.last_command = command.id
+    device.last_seen = now
+    @devices_changed = true
   end
 
   # Remove stale devices, commands and clears. Runs every minute
@@ -167,9 +180,9 @@ class Place::RemoteSetup < PlaceOS::Driver
     self[command_binding(device_id)] = nil if @commands.delete(device_id)
   end
 
+  # A pending command stays, because a device that is set up can apply it
   private def remove_device(device_id : String) : Nil
     @devices.delete(device_id)
-    remove_command(device_id)
     @devices_changed = true
   end
 

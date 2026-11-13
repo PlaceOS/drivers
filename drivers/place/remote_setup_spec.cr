@@ -24,7 +24,7 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
   it "rejects bad input" do
     expect_raises(PlaceOS::Driver::RemoteException) { exec(:register, "", "control").get }
     expect_raises(PlaceOS::Driver::RemoteException) { exec(:register, "DEV-1", "phone").get }
-    expect_raises(PlaceOS::Driver::RemoteException) { exec(:configure, "DEV-UNKNOWN", {system_id: "sys-1"}).get }
+    expect_raises(PlaceOS::Driver::RemoteException) { exec(:configure, "", {system_id: "sys-1"}).get }
     expect_raises(PlaceOS::Driver::RemoteException) { exec(:configure, panel, {system_id: ""}).get }
     expect_raises(PlaceOS::Driver::RemoteException) { exec(:clear_system, "signage", "").get }
   end
@@ -47,6 +47,22 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
     exec(:remove_stale).get
     device = status[:devices][panel]
     device["config"]["system_id"].should eq "sys-1"
+    device["last_command"].should eq command_id
+  end
+
+  it "configures a device that did not register" do
+    control = "DEV-0A1B2C3D4E5F"
+    command_id = exec(:configure, control, {system_id: "sys-2"}).get.not_nil!.as_s
+    status["device_#{control}"]["id"].should eq command_id
+
+    # the device is set up, so it completes the command with its app
+    exec(:complete, control, command_id, "control").get
+    status["device_#{control}"]?.should be_nil
+
+    exec(:remove_stale).get
+    device = status[:devices][control]
+    device["app"].should eq "control"
+    device["config"]["system_id"].should eq "sys-2"
     device["last_command"].should eq command_id
   end
 
