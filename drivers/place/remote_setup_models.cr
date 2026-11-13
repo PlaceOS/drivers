@@ -54,35 +54,43 @@ module Place::RemoteSetupModels
 
     getter id : String
     property app : App
-    # Configuration on the device. `null` when it is not set up
+    # Configuration from the last completed command. `null` after `register`
     @[JSON::Field(emit_null: true)]
-    property config : Config?
+    property config : Config? = nil
     # Unix epoch in milliseconds of the last `register` or `complete` call
     property last_seen : Int64
     # ID of the last command that the device completed
     property last_command : String?
 
-    def initialize(@id, @app, @config, @last_seen)
+    def initialize(@id, @app, @last_seen)
     end
   end
 
-  enum Action
-    Configure
-    Clear
-  end
-
-  # Command in the `device_<id>` binding. `config` is only set for `configure`
+  # Configure command in the `device_<id>` binding
   struct Command
     include JSON::Serializable
 
-    getter id : String
-    getter action : Action
-    getter config : Config?
+    getter id : String = Random::Secure.hex(8)
+    getter config : Config
     # Unix epoch in milliseconds of the time the command was made
     getter issued_at : Int64
 
-    def initialize(@action, @config, @issued_at)
-      @id = Random::Secure.hex(8)
+    def initialize(@config, @issued_at)
+    end
+  end
+
+  # Entry in the `clear_systems` binding. Devices of `app` that show
+  # `system_id` clear their configuration.
+  struct SystemClear
+    include JSON::Serializable
+
+    getter id : String = Random::Secure.hex(8)
+    getter app : App
+    getter system_id : String
+    # Unix epoch in milliseconds of the time the entry was made
+    getter issued_at : Int64
+
+    def initialize(@app, @system_id, @issued_at)
     end
   end
 end

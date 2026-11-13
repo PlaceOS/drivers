@@ -3,9 +3,13 @@ require "./remote_setup_models"
 
 # Lets a person set up a Booking Panel, Control or Signage device from a phone.
 #
-# Devices call `register` and wait for a command in the `device_<id>` binding.
-# The setup flow (Concierge or Signage Manager) calls `configure` or `clear`.
-# The device applies the command and calls `complete`.
+# A device on its setup screen calls `register`, then waits for a configure
+# command in the `device_<id>` binding. The setup flow (Concierge or Signage
+# Manager) calls `configure`. The device applies the command and calls `complete`.
+#
+# A device that is set up does not call the driver. It clears its configuration
+# when its ID is in `clear_list` (from `clear`), or when its app and system are
+# in `clear_systems` (from `clear_system`).
 #
 # Interface: https://github.com/PlaceOS/user-interfaces/blob/develop/docs/remote-setup.md
 class Place::RemoteSetup < PlaceOS::Driver
@@ -13,24 +17,28 @@ class Place::RemoteSetup < PlaceOS::Driver
 
   descriptive_name "PlaceOS Remote Setup"
   generic_name :RemoteSetup
-  description %(Passes setup commands from the Concierge and Signage Manager setup flow to Booking Panel, Control and Signage devices.
+  description %(Passes setup changes from the Concierge and Signage Manager setup flow to Booking Panel, Control and Signage devices.
     To turn it on, add `"remote_setup": {"system_id": "<id of this system>"}` to the authority config of the domain.)
 
   default_settings({
-    # remove devices that did not call `register` or `complete` in this time
+    # remove devices that did not call `register` or `complete`, and `clear_list` IDs, after this time
     device_ttl_hours: 168,
-    # remove commands that a device did not complete in this time
+    # remove configure commands that a device did not complete, and `clear_systems` entries, after this time
     command_ttl_minutes: 15,
   })
 
-  # Most devices in the `devices` binding
-  MAX_DEVICES = 1000
+  # Most entries in each of `devices`, `clear_list` and `clear_systems`
+  MAX_ENTRIES = 1000
   # Most time between a change and the `devices` binding update
   PUBLISH_INTERVAL = 1.second
 
   @devices = {} of String => Device
-  # Pending command of each device, by device ID
+  # Pending configure command of each device, by device ID
   @commands = {} of String => Command
+  # IDs of the devices to clear, with the time they were added. Oldest first
+  @clear_list = {} of String => Int64
+  # Oldest first
+  @clear_systems = [] of SystemClear
   @device_ttl : Time::Span = 7.days
   @command_ttl : Time::Span = 15.minutes
   # The `devices` binding is out of date and must be published
@@ -40,11 +48,13 @@ class Place::RemoteSetup < PlaceOS::Driver
 
   def on_load
     self[:devices] = @devices
+    publish_clear_list
+    publish_clear_systems
     self[:connected] = true
     on_update
 
-    # A large fleet can register many devices at the same time, such as after
-    # a restart. So changes are published together at most once per interval.
+    # Many devices can register at the same time. So `devices` changes are
+    # published together at most once per interval.
     schedule.every(PUBLISH_INTERVAL) { publish_devices }
     schedule.every(1.minute) { remove_stale }
   end
@@ -54,45 +64,70 @@ class Place::RemoteSetup < PlaceOS::Driver
     @command_ttl = (setting?(Int32, :command_ttl_minutes) || 15).clamp(0, 24 * 60).minutes
   end
 
-  # Called by a device when the driver connects, and then every 15 minutes
-  def register(device_id : String, app : App, config : Config? = nil) : Nil
+  # Called by a device while it shows its setup screen, then every 15 minutes
+  def register(device_id : String, app : App) : Nil
     RemoteSetupModels.check_id("device_id", device_id)
-    config.try &.validate!
     now = Time.utc.to_unix_ms
 
     if device = @devices[device_id]?
-      if device.app == app && device.config == config
+      if device.app == app && device.config.nil?
         # A heartbeat. `remove_stale` publishes the new `last_seen`
         @last_seen_changed = true
       else
         device.app = app
-        device.config = config
+        device.config = nil
         @devices_changed = true
       end
       device.last_seen = now
     else
-      @devices[device_id] = Device.new(device_id, app, config, now)
+      @devices[device_id] = Device.new(device_id, app, now)
       @devices_changed = true
       remove_oldest_devices
     end
+
+    # The device shows its setup screen, so a clear is done
+    publish_clear_list if @clear_list.delete(device_id)
   end
 
   # Called by the setup flow. Returns the command ID
   @[Security(Level::Support)]
   def configure(device_id : String, config : Config) : String
     config.validate!
+    raise ArgumentError.new("device not found: #{device_id}") unless @devices.has_key?(device_id)
     logger.info { "#{invoked_by_user_id} configured #{device_id} with #{config.to_json}" }
-    send_command(device_id, Command.new(Action::Configure, config, Time.utc.to_unix_ms))
+
+    command = Command.new(config, Time.utc.to_unix_ms)
+    @commands[device_id] = command
+    self[command_binding(device_id)] = command
+    command.id
   end
 
-  # Called by the setup flow. Returns the command ID
+  # Called by the setup flow. The device does not have to be in `devices`,
+  # because a device that is set up does not register.
   @[Security(Level::Support)]
-  def clear(device_id : String) : String
+  def clear(device_id : String) : Nil
+    RemoteSetupModels.check_id("device_id", device_id)
     logger.info { "#{invoked_by_user_id} cleared #{device_id}" }
-    send_command(device_id, Command.new(Action::Clear, nil, Time.utc.to_unix_ms))
+
+    # Delete first, so that the ID moves to the end of the list
+    @clear_list.delete(device_id)
+    @clear_list[device_id] = Time.utc.to_unix_ms
+    @clear_list.shift if @clear_list.size > MAX_ENTRIES
+    publish_clear_list
   end
 
-  # Called by a device after it applies a command
+  # Called by the setup flow. Devices of `app` that show `system_id` clear
+  @[Security(Level::Support)]
+  def clear_system(app : App, system_id : String) : Nil
+    RemoteSetupModels.check_id("system_id", system_id)
+    logger.info { "#{invoked_by_user_id} cleared #{app.to_json} devices of #{system_id}" }
+
+    @clear_systems << SystemClear.new(app, system_id, Time.utc.to_unix_ms)
+    @clear_systems.shift if @clear_systems.size > MAX_ENTRIES
+    publish_clear_systems
+  end
+
+  # Called by a device after it applies a configure command
   def complete(device_id : String, command_id : String) : Nil
     command = @commands[device_id]?
     return unless command && command.id == command_id
@@ -106,7 +141,7 @@ class Place::RemoteSetup < PlaceOS::Driver
     end
   end
 
-  # Remove stale devices and commands. Runs every minute
+  # Remove stale devices, commands and clears. Runs every minute
   def remove_stale : Nil
     now = Time.utc
     device_cutoff = (now - @device_ttl).to_unix_ms
@@ -115,15 +150,16 @@ class Place::RemoteSetup < PlaceOS::Driver
     @commands.select { |_id, command| command.issued_at <= command_cutoff }.each_key { |id| remove_command(id) }
     @devices.select { |_id, device| device.last_seen <= device_cutoff }.each_key { |id| remove_device(id) }
 
+    clear_list_size = @clear_list.size
+    @clear_list.reject! { |_id, added_at| added_at <= device_cutoff }
+    publish_clear_list if @clear_list.size != clear_list_size
+
+    clear_systems_size = @clear_systems.size
+    @clear_systems.reject! { |entry| entry.issued_at <= command_cutoff }
+    publish_clear_systems if @clear_systems.size != clear_systems_size
+
     @devices_changed ||= @last_seen_changed
     publish_devices
-  end
-
-  private def send_command(device_id : String, command : Command) : String
-    raise ArgumentError.new("device not found: #{device_id}") unless @devices.has_key?(device_id)
-    @commands[device_id] = command
-    self[command_binding(device_id)] = command
-    command.id
   end
 
   private def remove_command(device_id : String) : Nil
@@ -137,10 +173,10 @@ class Place::RemoteSetup < PlaceOS::Driver
     @devices_changed = true
   end
 
-  # Keep `MAX_DEVICES` maximum. Devices are added one at a time, so this
-  # removes one device at most.
+  # Keep `MAX_ENTRIES` devices maximum. Devices are added one at a time, so
+  # this removes one device at most.
   private def remove_oldest_devices : Nil
-    while @devices.size > MAX_DEVICES
+    while @devices.size > MAX_ENTRIES
       remove_device(@devices.min_by { |_id, device| device.last_seen }[0])
     end
   end
@@ -150,6 +186,14 @@ class Place::RemoteSetup < PlaceOS::Driver
     @devices_changed = false
     @last_seen_changed = false
     self[:devices] = @devices
+  end
+
+  private def publish_clear_list : Nil
+    self[:clear_list] = @clear_list.keys
+  end
+
+  private def publish_clear_systems : Nil
+    self[:clear_systems] = @clear_systems
   end
 
   private def command_binding(device_id : String) : String

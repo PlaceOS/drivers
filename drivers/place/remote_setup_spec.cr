@@ -7,8 +7,10 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
   it "registers devices" do
     status[:connected].should eq true
     status[:devices].as_h.empty?.should be_true
+    status[:clear_list].as_a.empty?.should be_true
+    status[:clear_systems].as_a.empty?.should be_true
 
-    exec(:register, panel, "booking-panel", nil).get
+    exec(:register, panel, "booking-panel").get
     # `remove_stale` publishes the devices without waiting for the interval
     exec(:remove_stale).get
 
@@ -20,10 +22,11 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
   end
 
   it "rejects bad input" do
-    expect_raises(PlaceOS::Driver::RemoteException) { exec(:register, "", "control", nil).get }
-    expect_raises(PlaceOS::Driver::RemoteException) { exec(:register, "DEV-1", "phone", nil).get }
+    expect_raises(PlaceOS::Driver::RemoteException) { exec(:register, "", "control").get }
+    expect_raises(PlaceOS::Driver::RemoteException) { exec(:register, "DEV-1", "phone").get }
     expect_raises(PlaceOS::Driver::RemoteException) { exec(:configure, "DEV-UNKNOWN", {system_id: "sys-1"}).get }
     expect_raises(PlaceOS::Driver::RemoteException) { exec(:configure, panel, {system_id: ""}).get }
+    expect_raises(PlaceOS::Driver::RemoteException) { exec(:clear_system, "signage", "").get }
   end
 
   it "configures a device" do
@@ -31,7 +34,6 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
 
     command = status[command_binding]
     command["id"].should eq command_id
-    command["action"].should eq "configure"
     command["config"]["system_id"].should eq "sys-1"
     command["config"]["event_view"].should eq true
 
@@ -48,20 +50,30 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
     device["last_command"].should eq command_id
   end
 
-  it "clears a device" do
-    command_id = exec(:clear, panel).get.not_nil!.as_s
-    command = status[command_binding]
-    command["action"].should eq "clear"
-    command.as_h.has_key?("config").should be_false
+  it "clears a device until it registers" do
+    # a device that is set up does not have to be in `devices`
+    exec(:clear, "DEV-NOT-LISTED").get
+    exec(:clear, panel).get
+    status[:clear_list].should eq ["DEV-NOT-LISTED", panel]
 
-    exec(:complete, panel, command_id).get
+    # the device clears, shows its setup screen and registers
+    exec(:register, panel, "booking-panel").get
+    status[:clear_list].should eq ["DEV-NOT-LISTED"]
+
     exec(:remove_stale).get
-    device = status[:devices][panel]
-    device["config"].raw.should be_nil
-    device["last_command"].should eq command_id
+    status[:devices][panel]["config"].raw.should be_nil
   end
 
-  it "removes stale devices and commands" do
+  it "clears the devices of a system" do
+    exec(:clear_system, "signage", "sys-display").get
+
+    entry = status[:clear_systems][0]
+    entry["id"].as_s.empty?.should be_false
+    entry["app"].should eq "signage"
+    entry["system_id"].should eq "sys-display"
+  end
+
+  it "removes stale devices, commands and clears" do
     exec(:configure, panel, {system_id: "sys-1"}).get
     status[command_binding]?.should_not be_nil
 
@@ -70,5 +82,7 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
 
     status[command_binding]?.should be_nil
     status[:devices].as_h.empty?.should be_true
+    status[:clear_list].as_a.empty?.should be_true
+    status[:clear_systems].as_a.empty?.should be_true
   end
 end
