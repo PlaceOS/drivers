@@ -529,12 +529,16 @@ class Place::StaffAPI < PlaceOS::Driver
   # The URL is fetched by other drivers (or devices) that don't apply our
   # `host_header`, so it must use the public domain rather than `config.uri`,
   # which is typically the cluster-internal ingress service (scheme and port included).
+  #
+  # The final path segment is a random filename, ignored by the API. Devices such as
+  # Crestron NVX cache by filename and reject a re-upload of the same name with
+  # "Value is same as previous", keeping the stale image, so every URL must be unique.
   @[Security(Level::Support)]
   def signage_download_url(upload_id : String, ext : String = "jpg")
     uri = @host_header.presence ? URI.new("https", @host_header) : URI.parse(config.uri.as(String))
     upload_id = Base64.urlsafe_encode(upload_id, padding: false)
     api_key = Base64.urlsafe_encode(@api_key, padding: false)
-    uri.path = "/api/engine/v2/uploads/#{upload_id}/download/#{api_key}/false/i.#{ext}"
+    uri.path = "/api/engine/v2/uploads/#{upload_id}/download/#{api_key}/false/#{Random::Secure.hex(2)}.#{ext}"
     uri.to_s
   end
 

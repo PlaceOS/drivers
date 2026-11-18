@@ -184,7 +184,12 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
   sleep 1.second
   upload_id = Base64.urlsafe_encode("uploads-1234", padding: false)
   api_key = Base64.urlsafe_encode("key-1234", padding: false)
-  exec(:signage_download_url, "uploads-1234", "png").get.should eq(
-    "https://placeos.example.com/api/engine/v2/uploads/#{upload_id}/download/#{api_key}/false/i.png"
-  )
+  # the filename is unique per call so devices that cache by filename (Crestron NVX)
+  # don't ignore a new image as "Value is same as previous"
+  url_prefix = "https://placeos.example.com/api/engine/v2/uploads/#{upload_id}/download/#{api_key}/false/"
+  url1 = exec(:signage_download_url, "uploads-1234", "png").get.as_s
+  url2 = exec(:signage_download_url, "uploads-1234", "png").get.as_s
+  url1.should match /\A#{Regex.escape(url_prefix)}[0-9a-f]{4}\.png\z/
+  url2.should match /\A#{Regex.escape(url_prefix)}[0-9a-f]{4}\.png\z/
+  url1.should_not eq url2
 end
