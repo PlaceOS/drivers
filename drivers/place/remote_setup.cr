@@ -13,6 +13,9 @@ require "./remote_setup_models"
 # `clear_list` (from `clear`), or when its app and system are in
 # `clear_systems` (from `clear_system`).
 #
+# To find the ID of a device that is set up, `show_device_ids` asks devices to
+# show their ID for a short time, through the `show_ids` binding.
+#
 # Interface: https://github.com/PlaceOS/user-interfaces/blob/develop/docs/remote-setup.md
 class Place::RemoteSetup < PlaceOS::Driver
   include RemoteSetupModels
@@ -29,8 +32,10 @@ class Place::RemoteSetup < PlaceOS::Driver
     command_ttl_minutes: 15,
   })
 
-  # Most entries in each of `devices`, pending commands, `clear_list` and `clear_systems`
+  # Most entries in each of `devices`, pending commands, `clear_list`, `clear_systems` and `show_ids`
   MAX_ENTRIES = 1000
+  # Most time that `show_device_ids` can ask devices to show their ID
+  MAX_SHOW_IDS_SECONDS = 15 * 60
   # Most time between a change and the `devices` binding update
   PUBLISH_INTERVAL = 1.second
 
@@ -41,6 +46,8 @@ class Place::RemoteSetup < PlaceOS::Driver
   @clear_list = {} of String => Int64
   # Oldest first
   @clear_systems = [] of SystemClear
+  # Oldest first
+  @show_ids = [] of ShowIds
   @device_ttl : Time::Span = 7.days
   @command_ttl : Time::Span = 15.minutes
   # The `devices` binding is out of date and must be published
@@ -52,6 +59,7 @@ class Place::RemoteSetup < PlaceOS::Driver
     self[:devices] = @devices
     publish_clear_list
     publish_clear_systems
+    publish_show_ids
     self[:connected] = true
     on_update
 
@@ -133,6 +141,20 @@ class Place::RemoteSetup < PlaceOS::Driver
     publish_clear_systems
   end
 
+  # Called by the setup flow. Devices of `app` that show `system_id` show their
+  # device ID for `seconds`. `nil` for `app` or `system_id` matches all devices.
+  @[Security(Level::Support)]
+  def show_device_ids(app : App? = nil, system_id : String? = nil, seconds : Int32 = 60) : Nil
+    system_id.try { |id| RemoteSetupModels.check_id("system_id", id) }
+    logger.info { "#{invoked_by_user_id} showed device IDs of app: #{app.to_json}, system: #{system_id.to_json}" }
+
+    now = Time.utc
+    expires_at = now + seconds.clamp(1, MAX_SHOW_IDS_SECONDS).seconds
+    @show_ids << ShowIds.new(app, system_id, now.to_unix_ms, expires_at.to_unix_ms)
+    @show_ids.shift if @show_ids.size > MAX_ENTRIES
+    publish_show_ids
+  end
+
   # Called by a device after it applies a configure command. `app` adds a
   # device that did not register to `devices`.
   def complete(device_id : String, command_id : String, app : App? = nil) : Nil
@@ -154,7 +176,7 @@ class Place::RemoteSetup < PlaceOS::Driver
     @devices_changed = true
   end
 
-  # Remove stale devices, commands and clears. Runs every minute
+  # Remove stale devices, commands and clears, and expired `show_ids`. Runs every minute
   def remove_stale : Nil
     now = Time.utc
     device_cutoff = (now - @device_ttl).to_unix_ms
@@ -170,6 +192,11 @@ class Place::RemoteSetup < PlaceOS::Driver
     clear_systems_size = @clear_systems.size
     @clear_systems.reject! { |entry| entry.issued_at <= command_cutoff }
     publish_clear_systems if @clear_systems.size != clear_systems_size
+
+    show_ids_size = @show_ids.size
+    now_ms = now.to_unix_ms
+    @show_ids.reject! { |entry| entry.expires_at <= now_ms }
+    publish_show_ids if @show_ids.size != show_ids_size
 
     @devices_changed ||= @last_seen_changed
     publish_devices
@@ -207,6 +234,10 @@ class Place::RemoteSetup < PlaceOS::Driver
 
   private def publish_clear_systems : Nil
     self[:clear_systems] = @clear_systems
+  end
+
+  private def publish_show_ids : Nil
+    self[:show_ids] = @show_ids
   end
 
   private def command_binding(device_id : String) : String

@@ -9,6 +9,7 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
     status[:devices].as_h.empty?.should be_true
     status[:clear_list].as_a.empty?.should be_true
     status[:clear_systems].as_a.empty?.should be_true
+    status[:show_ids].as_a.empty?.should be_true
 
     exec(:register, panel, "booking-panel").get
     # `remove_stale` publishes the devices without waiting for the interval
@@ -87,6 +88,34 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
     entry["id"].as_s.empty?.should be_false
     entry["app"].should eq "signage"
     entry["system_id"].should eq "sys-display"
+  end
+
+  it "asks devices to show their ID" do
+    exec(:show_device_ids, "signage", "sys-display", 120).get
+    exec(:show_device_ids).get
+
+    targeted = status[:show_ids][0]
+    targeted["id"].as_s.empty?.should be_false
+    targeted["app"].should eq "signage"
+    targeted["system_id"].should eq "sys-display"
+    (targeted["expires_at"].as_i64 - targeted["issued_at"].as_i64).should eq 120_000
+
+    # without filters, all devices show their ID, for 60 seconds by default
+    everyone = status[:show_ids][1]
+    everyone.as_h.has_key?("app").should be_false
+    everyone.as_h.has_key?("system_id").should be_false
+    (everyone["expires_at"].as_i64 - everyone["issued_at"].as_i64).should eq 60_000
+
+    expect_raises(PlaceOS::Driver::RemoteException) { exec(:show_device_ids, "signage", "").get }
+  end
+
+  it "removes expired show ID requests" do
+    exec(:show_device_ids, "control", nil, 1).get
+    status[:show_ids].as_a.size.should eq 3
+
+    sleep 1.1.seconds
+    exec(:remove_stale).get
+    status[:show_ids].as_a.size.should eq 2
   end
 
   it "removes stale devices, commands and clears" do

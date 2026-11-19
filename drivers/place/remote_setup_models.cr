@@ -93,4 +93,20 @@ module Place::RemoteSetupModels
     def initialize(@app, @system_id, @issued_at)
     end
   end
+
+  # Entry in the `show_ids` binding. Devices that match show their device ID
+  # until `expires_at`. A field that is not set matches all devices.
+  struct ShowIds
+    include JSON::Serializable
+
+    getter id : String = Random::Secure.hex(8)
+    getter app : App?
+    getter system_id : String?
+    # Unix epochs in milliseconds
+    getter issued_at : Int64
+    getter expires_at : Int64
+
+    def initialize(@app, @system_id, @issued_at, @expires_at)
+    end
+  end
 end
