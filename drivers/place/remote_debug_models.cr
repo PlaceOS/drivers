@@ -104,11 +104,6 @@ module Place
     ClearCache
     Snapshot
     Animation
-
-    # Whether the result of this command holds a `RemoteDebugMedia`
-    def media?
-      snapshot? || animation?
-    end
   end
 
   enum RemoteDebugMediaFormat
@@ -178,34 +173,6 @@ module Place
 
     def initialize(@ok, @data = nil, @error = nil)
     end
-  end
-
-  # Data of the `snapshot` and `animation` results, and an item of the
-  # `media:<id>` binding. The device sets the fields up to `upload_id`, the
-  # driver sets the others.
-  struct RemoteDebugMedia
-    include JSON::Serializable
-
-    # `image/webp` or `image/png` for a snapshot, `image/webp` or `image/gif` for an animation
-    getter mime : String
-    getter width : Int32
-    getter height : Int32
-    getter frames : Int32
-    # Milliseconds of the animation. `0` for a snapshot
-    getter duration : Int32
-    # Bytes of the file
-    getter bytes : Int64
-    # ID of the PlaceOS upload
-    getter upload_id : String
-
-    # ID of the command
-    @[JSON::Field(ignore_deserialize: true)]
-    property id : String? = nil
-    # Address of the upload
-    @[JSON::Field(ignore_deserialize: true)]
-    property url : String? = nil
-    @[JSON::Field(ignore_deserialize: true)]
-    property received_at : Int64? = nil
   end
 
   # Item of the `results:<id>` binding

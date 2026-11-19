@@ -1,20 +1,7 @@
 require "placeos-driver/spec"
 require "./remote_debug_models"
 
-# :nodoc:
-class StaffAPIMock < DriverSpecs::MockDriver
-  def upload_remove(upload_id : String) : Bool
-    removed = self[:removed]?.try(&.as_a.map(&.as_s)) || [] of String
-    self[:removed] = removed << upload_id
-    true
-  end
-end
-
 DriverSpecs.mock_driver "Place::RemoteDebug" do
-  system({
-    StaffAPI: {StaffAPIMock},
-  })
-
   device_id = "DEV-TEST00000001"
   device = {
     id:         device_id,
@@ -99,20 +86,14 @@ DriverSpecs.mock_driver "Place::RemoteDebug" do
     last["result"].should eq JSON.parse(%({"ok": false, "error": "Result is too large"}))
   end
 
-  it "should keep the last 3 uploads and remove the older uploads" do
-    ids = (1..4).map do |index|
-      command_id = exec(:send_command, device_id, "snapshot", {width: 800}).get.not_nil!.as_s
-      media = {mime: "image/png", width: 800, height: 450, frames: 1, duration: 0, bytes: 5, upload_id: "upload-#{index}"}
-      exec(:command_result, device_id, command_id, {ok: true, data: media}, device).get
-      command_id
-    end
+  it "should list a device that registers" do
+    fixed = device.merge(id: "DEV-FIXED0001", app: "signage")
+    exec(:register, fixed).get
+    status["devices"]["DEV-FIXED0001"]["app"].should eq "signage"
+    status["devices"]["DEV-FIXED0001"]["last_seen"].as_i64.should be > 0
 
-    # `id`, `url` and `received_at` are set by the driver, so the model does not parse them
-    media = status["media:#{device_id}"].as_a
-    media.map(&.["upload_id"].as_s).should eq ["upload-2", "upload-3", "upload-4"]
-    media.map(&.["id"].as_s).should eq ids[1..]
-    media[0]["url"].should eq "/api/engine/v2/uploads/upload-2/url"
-    system(:StaffAPI)[:removed].should eq ["upload-1"]
+    exec(:register, fixed.merge(id: "not a device id")).get
+    status["devices"]["not a device id"]?.should be_nil
   end
 
   it "should not add commands that are not valid" do
@@ -123,5 +104,9 @@ DriverSpecs.mock_driver "Place::RemoteDebug" do
 
     command_id = exec(:send_command, device_id, "clear_cache").get.not_nil!.as_s
     status["device:#{device_id}"]["commands"].should eq JSON.parse([{id: command_id, type: "clear_cache"}].to_json)
+
+    # The admin views show that the list is full when the result is `null`
+    19.times { exec(:send_command, device_id, "status").get.not_nil!.as_s }
+    exec(:send_command, device_id, "status").get.try(&.raw).should be_nil
   end
 end
