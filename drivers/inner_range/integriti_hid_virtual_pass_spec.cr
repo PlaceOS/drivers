@@ -11,6 +11,33 @@ DriverSpecs.mock_driver "InnerRange::IntegritiHIDVirtualPass" do
   exec(:has_virtual_card?, user_id: "user-123").get.try(&.as_bool?).should be_true
   exec(:remove_virtual_card, user_id: "user-123").get
   exec(:has_virtual_card?, user_id: "user-123").get.try(&.as_bool?).should_not be_true
+
+  # already has a card and there is no HID module
+  exec(:request_virtual_card, user_id: "user-123").get
+  expect_raises(PlaceOS::Driver::RemoteException, /virtual_card_reissue_unavailable/) do
+    exec(:request_virtual_card, user_id: "user-123").get
+  end
+
+  # already has a card and HID issues the next one
+  system({
+    StaffAPI:  {StaffAPIMock},
+    Integriti: {IntegritiMock},
+    HID:       {HIDMock},
+  })
+  exec(:request_virtual_card, user_id: "user-123").get
+  system(:HID_1).as(HIDMock).invited.should be_empty
+  exec(:request_virtual_card, user_id: "user-123").get
+  system(:HID_1).as(HIDMock).invited.should eq ["user@email.com"]
+end
+
+# :nodoc:
+class HIDMock < DriverSpecs::MockDriver
+  getter invited = [] of String
+
+  def invite_user_email(email : String)
+    @invited << email
+    nil
+  end
 end
 
 # :nodoc:

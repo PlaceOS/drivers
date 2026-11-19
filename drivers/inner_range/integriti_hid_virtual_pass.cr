@@ -31,8 +31,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     integriti.user_id_lookup(email).get[0].as_s
   end
 
+  # The native app matches this prefix to tell the user to contact support.
+  REISSUE_UNAVAILABLE = "virtual_card_reissue_unavailable"
+
   def request_virtual_card : Nil
     if has_virtual_card?
+      unless system.exists?(:HID, 1)
+        raise "#{REISSUE_UNAVAILABLE}: a virtual card has already been issued to this user and this system has no HID module to issue another"
+      end
       hid_origo.invite_user_email(get_user_email).get
     else
       id = get_integriti_id
