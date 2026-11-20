@@ -28,6 +28,28 @@ DriverSpecs.mock_driver "InnerRange::IntegritiHIDVirtualPass" do
   system(:HID_1).as(HIDMock).invited.should be_empty
   exec(:request_virtual_card, user_id: "user-123").get
   system(:HID_1).as(HIDMock).invited.should eq ["user@email.com"]
+
+  # already has a card, no HID module, re-issue through Integriti
+  system({
+    StaffAPI:  {StaffAPIMock},
+    Integriti: {IntegritiMock},
+  })
+  settings({reissue_through_integriti: true})
+  exec(:request_virtual_card, user_id: "user-123").get
+  integriti = system(:Integriti_1).as(IntegritiMock)
+  integriti.card_states.should eq ["ActiveIssuing"]
+
+  exec(:request_virtual_card, user_id: "user-123").get
+  exec(:has_virtual_card?, user_id: "user-123").get.try(&.as_bool?).should_not be_true
+  integriti.card_states.should eq ["InactiveRevoked"]
+
+  # pressed again while the re-tick is pending
+  exec(:request_virtual_card, user_id: "user-123").get
+  exec(:has_virtual_card?, user_id: "user-123").get.try(&.as_bool?).should_not be_true
+
+  sleep 7.seconds
+  exec(:has_virtual_card?, user_id: "user-123").get.try(&.as_bool?).should be_true
+  integriti.card_states.should eq ["InactiveRevoked", "ActiveIssuing"]
 end
 
 # :nodoc:
@@ -79,12 +101,29 @@ class IntegritiMock < DriverSpecs::MockDriver
     @users.values.select { |user| user["email"] == email }
   end
 
+  # mobile credentials, issued on tick and revoked on untick
+  @cards = [] of Hash(String, String)
+
+  def card_states : Array(String)
+    @cards.map(&.["state"])
+  end
+
+  def cards(site_id : Int32? = nil, user_id : String? = nil, template : String? = nil, number : String? = nil)
+    @cards
+  end
+
   def update_entry(type : String, id : String, fields : Hash(String, Bool), attribute : String = "Address", return_object : Bool = false)
     raise "unexpected type #{type}" unless type == "User"
     user = @users[id]
     fields.each do |field, value|
       field = "origo" if field == "cf_HasVirtualCard"
       user[field] = value
+      next unless field == "origo"
+      if value
+        @cards << {"cloud_credential_id" => "cred-#{@cards.size + 1}", "state" => "ActiveIssuing"}
+      else
+        @cards.each { |card| card["state"] = "InactiveRevoked" }
+      end
     end
   end
 end
