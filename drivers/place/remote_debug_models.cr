@@ -33,6 +33,10 @@ module Place
     getter source : RemoteLogSource
     getter message : String
 
+    # Unix epoch in milliseconds when the driver got the entry. Not in the bindings
+    @[JSON::Field(ignore: true)]
+    property received_at : Int64 = 0_i64
+
     def initialize(@seq, @timestamp, @level, @source, @message)
     end
 
@@ -44,6 +48,9 @@ module Place
   # Details of the device that the device sends with each call
   struct RemoteDebugDevice
     include JSON::Serializable
+
+    # Most characters in each text field. The driver cuts longer values
+    MAX_TEXT = 500
 
     getter id : String
     # Short name of the app
@@ -63,13 +70,22 @@ module Place
 
     def initialize(@id, @app, @version, @build, @url, @user_agent, @started_at)
     end
+
+    def after_initialize
+      @app = @app[0, MAX_TEXT]
+      @version = @version[0, MAX_TEXT]
+      @build = @build[0, MAX_TEXT]
+      @url = @url[0, MAX_TEXT]
+      @user_agent = @user_agent[0, MAX_TEXT]
+    end
   end
 
   # Log request in the `device:<id>` binding
   struct RemoteLogRequest
     include JSON::Serializable
 
-    # Unique ID of the request. A device applies each ID one time
+    # Unique ID of the request. A new ID starts a new request on the device.
+    # `set_level` keeps the ID and changes only the level
     getter id : String
     getter level : RemoteLogLevel
     # Most buffered entries to send first. `0` sends only new entries

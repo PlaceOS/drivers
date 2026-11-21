@@ -44,15 +44,27 @@ DriverSpecs.mock_driver "Place::RemoteDebug" do
     exec(:post_logs, device_id, "old-request", [entry.call(9)], device).get
     status["logs:#{device_id}"]?.should be_nil
 
-    exec(:post_logs, device_id, id, [entry.call(2), entry.call(1)], device).get
-    exec(:post_logs, device_id, id, [entry.call(2), entry.call(3)], device).get
-    status["logs:#{device_id}"]["entries"].as_a.map(&.["seq"].as_i).should eq [1, 2, 3]
+    exec(:post_logs, device_id, id, [entry.call(3), entry.call(2)], device).get
+    exec(:post_logs, device_id, id, [entry.call(3), entry.call(4)], device).get
+    # Only the user that first called for the device ID can add entries
+    exec(:post_logs, device_id, id, [entry.call(5)], device, user_id: "user-2").get
+    status["logs:#{device_id}"]["entries"].as_a.map(&.["seq"].as_i).should eq [2, 3, 4]
+
+    # A request for older entries adds them before the entries that the driver has
+    id = exec(:request_logs, device_id, "info", {before: 2}).get.not_nil!.as_s
+    status["device:#{device_id}"]["logs"]["before"].should eq 2
+    exec(:post_logs, device_id, id, [entry.call(1)], device).get
+    status["logs:#{device_id}"]["entries"].as_a.map(&.["seq"].as_i).should eq [1, 2, 3, 4]
 
     reloaded = device.merge(started_at: 2000)
     exec(:post_logs, device_id, id, [entry.call(1)], reloaded).get
     status["logs:#{device_id}"].should eq JSON.parse({device: reloaded, entries: [entry.call(1)]}.to_json)
     status["devices"][device_id]["started_at"].should eq 2000
     status["devices"][device_id]["last_seen"].as_i64.should be > 0
+
+    # A late batch from the app session before the reload does not replace the new entries
+    exec(:post_logs, device_id, id, [entry.call(5)], device).get
+    status["logs:#{device_id}"]["entries"].as_a.map(&.["seq"].as_i).should eq [1]
 
     exec(:stop_logs, device_id).get
   end
@@ -64,6 +76,9 @@ DriverSpecs.mock_driver "Place::RemoteDebug" do
     status["device:#{device_id}"]["commands"].should eq JSON.parse([{id: command_id, type: "settings", keys: ["app.title"]}].to_json)
 
     result = {ok: true, data: {"app.title" => "Panel"}}
+    exec(:command_result, device_id, command_id, result, device, user_id: "user-2").get
+    status["device:#{device_id}"]["commands"].as_a.size.should eq 1
+
     exec(:command_result, device_id, command_id, result, device).get
     status["device:#{device_id}"]["commands"].as_a.should be_empty
 
@@ -94,6 +109,10 @@ DriverSpecs.mock_driver "Place::RemoteDebug" do
 
     exec(:register, fixed.merge(id: "not a device id")).get
     status["devices"]["not a device id"]?.should be_nil
+
+    # Only the user that first called for the device ID can change it
+    exec(:register, fixed.merge(app: "other"), user_id: "user-2").get
+    status["devices"]["DEV-FIXED0001"]["app"].should eq "signage"
   end
 
   it "should not add commands that are not valid" do
