@@ -23,10 +23,14 @@ class Place::ImageUploader < PlaceOS::Driver
   end
 
   @apply_exactly : Bool = false
+  @sync_lock = Mutex.new
+  @sync_task : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
 
   def on_update
     @apply_exactly = setting?(Bool, :apply_exactly) || false
 
+    @sync_task.try &.cancel
+    @sync_task = nil
     signage_sync_cron = setting?(String, :signage_sync_cron)
     return unless signage_sync_cron
 
@@ -34,59 +38,81 @@ class Place::ImageUploader < PlaceOS::Driver
     location = timezone ? Time::Location.load(timezone) : Time::Location.local
 
     # Push Images on this schedule
-    schedule.cron(signage_sync_cron, timezone: location) do
-      manual_update(last_checked)
-      @last_checked = Time.utc.to_unix
+    @sync_task = schedule.cron(signage_sync_cron, timezone: location) do
+      manual_update
     end
   end
 
   getter last_checked : Int64? = nil
 
   def manual_update(modified_since : Int64? = nil)
-    get_all_systems_in_building.each do |system_id|
-      # get the systems playlist
-      playlist = staff_api.signage_playlist(system_id, modified_since).get.as_a?
-      if playlist
-        logger.debug { "applying #{playlist.size} images to #{system_id}" }
+    @sync_lock.synchronize do
+      started_at = Time.utc.to_unix
+      get_all_systems_in_building.uniq.each do |system_id|
+        sync_room(system_id, modified_since)
+      rescue error
+        logger.warn(exception: error) { "unable to sync standby images for #{system_id}" }
+      end
+      @last_checked = started_at
+    end
+  end
+
+  private def sync_room(system_id : String, modified_since : Int64?)
+    status_key = "background_images/#{system_id}"
+    previous = status?(Hash(String, String), status_key)
+    verified = previous || {} of String => String
+
+    # With no delivery history, an explicit last-modified check can tell us
+    # whether a healthy device is already current. Always get the effective
+    # playlist to determine which receivers to reconcile and what to retry.
+    playlist = staff_api.signage_playlist(system_id, nil).get.as_a
+    unchanged = false
+    if modified_since && !previous
+      if latest = staff_api.signage_playlist(system_id, modified_since).get.as_a?
+        playlist = latest
       else
-        logger.debug { "skipping update to #{system_id} as no changes" }
-        next
+        unchanged = true
       end
+    end
+    images = playlist.select { |item| item["media_type"].as_s.downcase == "image" }
+    if images.empty?
+      self[status_key] = {} of String => String
+      return
+    end
 
-      # remove the items that are not images
-      playlist.select! { |item| item["media_type"].as_s.downcase == "image" }
-      if playlist.empty?
-        logger.debug { "skipping update to #{system_id} as no media items" }
-        next
-      end
+    receivers = system(system_id).implementing(Interface::StandbyImage).to_a
+    if local = local_decoders(system_id)
+      receivers.select! { |receiver| local.includes?("#{receiver.module_name}_#{receiver.index}") }
+    end
+    receivers = receivers.first(images.size) if @apply_exactly
+    targets = receivers.map(&.module_id).to_set
+    verified.select! { |id, _| targets.includes?(id) }
+    self[status_key] = verified
 
-      # apply the images to the displays in the system
-      receivers = system(system_id).implementing(Interface::StandbyImage).to_a
-
-      # limit to the rooms receivers, if configured
-      if local = local_decoders(system_id)
-        receivers.select! { |receiver| local.includes?("#{receiver.module_name}_#{receiver.index}") }
-      end
-      logger.debug { "found #{receivers.size} devices to apply images" }
-
-      list_len = playlist.size
-      receivers.each_with_index do |receiver, index|
-        break if @apply_exactly && list_len == index
-
-        # select the item to be applied from the playlist
-        item = index % playlist.size
-        upload_id = playlist[item]["media_id"]
-
-        # get the upload details
+    receivers.each_with_index do |receiver, index|
+      item = images[index % images.size]
+      upload_id = item["media_id"].as_s
+      revision = {upload_id, item["updated_at"]?}.to_json
+      # StandbyImage requires the setter. Only drivers advertising read-back
+      # can establish current device state without a recorded delivery.
+      supports_readback = receiver.__metadata__.interface.has_key?("background_image_ready?")
+      known_current = verified[receiver.module_id]? == revision || (unchanged && supports_readback)
+      if !known_current || (supports_readback && !receiver.background_image_ready?.get.as_bool)
+        if verified.delete(receiver.module_id)
+          self[status_key] = verified
+        end
         direct_url = URI.parse(staff_api.upload_content_url(upload_id).get.as_s)
-
-        # get a crestron friendly URL
-        url = staff_api.signage_download_url(upload_id, direct_url.path.split(".")[-1]).get.as_s
-        logger.debug { "setting receiver#{index} to #{url}" }
-
-        # apply it to the receiver
-        receiver.set_background_image(url)
+        extension = File.extname(direct_url.path).lchop('.')
+        url = staff_api.signage_download_url(upload_id, extension).get.as_s
+        receiver.set_background_image(url).get
       end
+
+      if verified[receiver.module_id]? != revision
+        verified[receiver.module_id] = revision
+        self[status_key] = verified
+      end
+    rescue error
+      logger.warn { "standby image sync failed for #{receiver.module_name}_#{receiver.index} in #{system_id} (#{error.class})" }
     end
   end
 
@@ -95,9 +121,7 @@ class Place::ImageUploader < PlaceOS::Driver
   # their systems also contain the remote rooms receivers.
   # nil if not configured, all receivers in the system belong to the room.
   protected def local_decoders(system_id : String) : Array(String)?
-    staff_api.system_settings(system_id, "local_decoders").get.as_a?.try &.map(&.as_s)
-  rescue error
-    logger.warn(exception: error) { "unable to determine the local decoders of #{system_id}, applying images to all" }
-    nil
+    allow_list = staff_api.system_settings(system_id, "local_decoders").get
+    allow_list.as_a.map(&.as_s) unless allow_list.raw.nil?
   end
 end

@@ -7,6 +7,7 @@ require "mime"
 require "openssl"
 require "http/client"
 require "http/formdata"
+require "random/secure"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   alias Input = String
@@ -211,25 +212,76 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   UPLOAD_DIR  = "/data/web/tmp/Images/Local/"
   UPLOAD_SLOT = "Image01"
 
+  BACKGROUND_IMAGE_COMMAND_TIMEOUT = 5.seconds
+  BACKGROUND_IMAGE_UPLOAD_TIMEOUT  = 60.seconds
+  BACKGROUND_IMAGE_OUTPUT_TIMEOUT  = 15.seconds
+  BACKGROUND_IMAGE_RETRY_BUDGET    = 105.seconds
+  BACKGROUND_IMAGE_POLL_INTERVAL   = 1.second
+
+  @uploading_background_image = Atomic(Bool).new(false)
+
+  @[Security(Level::Support)]
+  def background_image_ready?(output_index : Int32? = nil) : Bool
+    output = background_image_output(output_index || 1)
+    return false unless output["HostBackgroundImage"]? == "Local"
+
+    image_name = output.dig?("Local", "ImageName").try(&.as_s?).presence
+    return false unless image_name && background_image_selected?(output, image_name)
+
+    stored_background_image_ready?(image_name)
+  end
+
   @[Security(Level::Administrator)]
   def set_background_image(url : String, output_index : Int32? = nil) : Nil
     output_index ||= 1
-    uri = URI.parse(url)
-    raise ArgumentError.new("invalid URL provided: #{url}") unless uri.scheme.presence && uri.host.presence && uri.path.presence
+    uri = begin
+      URI.parse(url)
+    rescue URI::Error
+      raise ArgumentError.new("invalid background image URL")
+    end
+    unless uri.scheme.in?({"http", "https"}) && uri.host.presence && uri.path.presence
+      raise ArgumentError.new("invalid background image URL")
+    end
 
     # The NVX's remote-server image pull is too limited, so instead we download
     # the image ourselves and upload it onto the device for local hosting.
     image_name = File.basename(uri.path)
-    raise ArgumentError.new("could not determine image filename from URL: #{url}") if image_name.empty?
+    raise ArgumentError.new("missing background image filename") if image_name.in?({"", "/", ".", ".."})
+    raise "another background image upload is in progress" if @uploading_background_image.swap(true)
 
-    upload_local_image(uri, image_name)
+    begin
+      # Both attempts share a polling budget. The HTTP requests retain their
+      # transport timeouts.
+      deadline = Time.instant + BACKGROUND_IMAGE_RETRY_BUDGET
+      image_stored = false
+      2.times do |attempt|
+        begin
+          unless image_stored
+            upload_local_image(uri, image_name)
+            storage_deadline = Math.min(deadline, Time.instant + BACKGROUND_IMAGE_UPLOAD_TIMEOUT)
+            wait_for_background_image(storage_deadline, "background image #{image_name} to be stored") do
+              stored_background_image_ready?(image_name, raise_on_error: true)
+            end
+            image_stored = true
+          end
 
-    # Takes a few moments before the image is ready after a successful upload
-    schedule.in(40.seconds) do
-      # Point the output at the freshly uploaded local image.
-      set_background_image_name(image_name, output_index)
-      sleep 2.seconds
-      ws_update "/BackgroundImage/Outputs/Output#{output_index}/HostBackgroundImage", "Local", name: "set_output#{output_index}_image_location"
+          select_background_image(image_name, output_index, deadline)
+          return
+        rescue error
+          raise error unless attempt.zero? && Time.instant + BACKGROUND_IMAGE_COMMAND_TIMEOUT < deadline
+
+          if image_stored
+            logger.warn { "retrying background image selection on Output#{output_index}" }
+          else
+            # The decoder may have received the first upload even if its
+            # response or readiness check failed. Avoid its filename cache.
+            image_name = "#{Random::Secure.hex(8)}#{File.extname(image_name)}"
+            logger.warn { "retrying background image upload as #{image_name}" }
+          end
+        end
+      end
+    ensure
+      @uploading_background_image.set(false)
     end
   end
 
@@ -237,6 +289,122 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   def set_background_image_name(image_name : String, output_index : Int32? = nil) : Nil
     output_index ||= 1
     ws_update "/BackgroundImage/Outputs/Output#{output_index}/Local/ImageName", image_name, name: "set_output#{output_index}_image"
+  end
+
+  private def select_background_image(image_name : String, output_index : Int32, deadline : Time::Instant) : Nil
+    raise "timed out before selecting background image on Output#{output_index}" if Time.instant >= deadline
+
+    output = background_image_output(output_index)
+    unless output.dig?("Local", "ImageName") == image_name
+      apply_background_image_property(output_index, "Local/ImageName", image_name, deadline)
+    end
+    unless output["HostBackgroundImage"]? == "Local"
+      apply_background_image_property(output_index, "HostBackgroundImage", "Local", deadline)
+    end
+
+    output_deadline = Math.min(deadline, Time.instant + BACKGROUND_IMAGE_OUTPUT_TIMEOUT)
+    wait_for_background_image(output_deadline, "background image #{image_name} to be selected on Output#{output_index}") do
+      background_image_selected?(background_image_output(output_index), image_name)
+    end
+  end
+
+  private def background_image_output(output_index : Int32) : JSON::Any
+    # A push notification can update just one property at the same path.
+    read_background_image("/BackgroundImage/Outputs/Output#{output_index}") do |output|
+      !output["HostBackgroundImage"]?.nil? && !output["Local"]?.nil? && !output["StatusCode"]?.nil?
+    end
+  end
+
+  private def background_image_selected?(output : JSON::Any, image_name : String) : Bool
+    output["HostBackgroundImage"]? == "Local" &&
+      output.dig?("Local", "ImageName") == image_name &&
+      !output.dig?("Local", "PreviewImage").try(&.as_s?).presence.nil? &&
+      output["StatusCode"]?.try(&.as_i?) != -1 &&
+      !output["StatusMessage"]?.try(&.as_s?).in?({"Pending", "Processing", "Error"})
+  end
+
+  private def stored_background_image_ready?(image_name : String, *, raise_on_error : Bool = false) : Bool
+    inventory = read_background_image("/ImageMgmnt") { |state| !state["Version"]?.nil? }
+    local_images = inventory["LocalImages"]?.try(&.as_h?)
+    return false unless local_images
+
+    local_images.values.any? do |image|
+      next false unless image["Name"]? == image_name || image["UploadFile"]? == image_name
+
+      status = image["UploadStatus"]?.try(&.as_s?).presence
+      if raise_on_error && status.in?({"Error", "InvalidFile"})
+        detail = image["DetailedMessage"]?.try(&.as_s?).presence || status
+        raise "device could not store background image #{image_name}: #{detail}"
+      end
+
+      image["Name"]? == image_name &&
+        !image["PreviewImage"]?.try(&.as_s?).presence.nil? &&
+        status.in?({nil, "Ready"})
+    end
+  end
+
+  private def wait_for_background_image(deadline : Time::Instant, description : String, &ready : -> Bool) : Nil
+    while Time.instant < deadline
+      return if ready.call
+      remaining = deadline - Time.instant
+      break unless remaining.positive?
+
+      sleep Math.min(remaining, BACKGROUND_IMAGE_POLL_INTERVAL)
+    end
+    raise "timed out waiting for #{description}"
+  end
+
+  private def read_background_image(path : String, &matching : JSON::Any -> Bool) : JSON::Any
+    task = query(path, matching: matching, timeout: BACKGROUND_IMAGE_COMMAND_TIMEOUT, retries: 0) { }
+    background_image_response(task, "read #{path}")
+  end
+
+  private def apply_background_image_property(output_index : Int32, property : String, value : String, deadline : Time::Instant) : Nil
+    path = "/BackgroundImage/Outputs/Output#{output_index}/#{property}"
+    operation = "set #{path}"
+    timeout = Math.min(BACKGROUND_IMAGE_COMMAND_TIMEOUT, deadline - Time.instant)
+    raise "timed out before attempting to #{operation}" unless timeout.positive?
+
+    task = ws_update(path, value, timeout: timeout, retries: 0)
+    response = background_image_response(task, operation, timeout)
+    results = background_image_results(response, "BackgroundImage")
+    full_path = "Device#{path.gsub('/', '.')}"
+    parent_path, _, property_name = full_path.rpartition('.')
+    result = results.find do |entry|
+      result_path = entry["Path"]?
+      result_property = entry["Property"]?
+      (result_path == parent_path && result_property == property_name) ||
+        (result_property.nil? && result_path.in?({full_path, "Device.BackgroundImage"}))
+    end
+    raise "device did not acknowledge #{operation}" unless result
+
+    # If the property already changed, the readback still has to match.
+    unless result["StatusId"]? == 0 || result["StatusInfo"]? == "Value is same as previous"
+      raise "device rejected #{operation}: #{background_image_result_detail(result)}"
+    end
+  end
+
+  private def background_image_response(task : ::PlaceOS::Driver::Task, operation : String, timeout : Time::Span = BACKGROUND_IMAGE_COMMAND_TIMEOUT) : JSON::Any
+    # A queued command can also time out before transmission if the device
+    # disconnects or other commands are pending.
+    watchdog = Tasker.in(timeout) { task.abort("timed out waiting to #{operation}") }
+    task.get(true)
+    raise "could not #{operation}: #{task.payload}" unless task.state.success?
+
+    JSON.parse(task.payload)
+  ensure
+    watchdog.try &.cancel
+  end
+
+  private def background_image_results(response : JSON::Any, target : String) : Array(JSON::Any)
+    actions = response["Actions"]?.try(&.as_a?) || [] of JSON::Any
+    actions.select { |action| action["TargetObject"]? == target }.flat_map do |action|
+      action["Results"]?.try(&.as_a?) || [] of JSON::Any
+    end
+  end
+
+  private def background_image_result_detail(result : JSON::Any) : String
+    result["StatusInfo"]?.try(&.as_s?).presence || "status #{result["StatusId"]?}"
   end
 
   # Streams the image from *uri* straight into a multipart/form-data upload to
@@ -257,20 +425,21 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     # a plain config-set and rejects the payload ("unsupported property").
     boundary = MIME::Multipart.generate_boundary
 
-    HTTP::Client.get(uri, tls: tls) do |source|
-      raise "failed to download background image from #{uri}: HTTP #{source.status_code}" unless source.success?
+    HTTP::Client.new(uri, tls: tls) do |client|
+      client.connect_timeout = 10.seconds
+      client.read_timeout = 10.seconds
+      client.get(uri.request_target) do |source|
+        raise "failed to download background image #{image_name}: HTTP #{source.status_code}" unless source.success?
 
-      # Prefer the image type derived from the filename: download hosts (e.g.
-      # the PlaceOS uploads endpoint, backed by blob storage) commonly serve a
-      # generic `application/octet-stream`, which the NVX rejects - it wants a
-      # real `image/*` content type for the upload part.
-      mime = MIME.from_filename?(image_name).presence || source.headers["Content-Type"]?.presence || "application/octet-stream"
+        # PlaceOS commonly serves a generic content type, while the NVX
+        # requires the MIME type for the image upload part.
+        mime = MIME.from_filename?(image_name).presence || source.headers["Content-Type"]?.presence || "application/octet-stream"
 
-      HTTP::FormData.build(body, boundary) do |form|
-        form.field "UploadFilePath", UPLOAD_DIR
-        form.field "RequestPayload", request_payload
-        # pipe the download stream directly into the multipart body
-        form.file "UploadImage", source.body_io, HTTP::FormData::FileMetadata.new(filename: image_name), HTTP::Headers{"Content-Type" => mime}
+        HTTP::FormData.build(body, boundary) do |form|
+          form.field "UploadFilePath", UPLOAD_DIR
+          form.field "RequestPayload", request_payload
+          form.file "UploadImage", source.body_io, HTTP::FormData::FileMetadata.new(filename: image_name), HTTP::Headers{"Content-Type" => mime}
+        end
       end
     end
 
@@ -279,8 +448,26 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       "CREST-XSRF-TOKEN" => @xsrf_token,
     })
 
-    raise "failed to upload background image to device: HTTP #{response.status_code}\n#{response.body}" unless response.success?
-    logger.debug { "uploaded background image #{image_name}: #{response.body}" }
+    raise "failed to upload background image #{image_name}: HTTP #{response.status_code}" unless response.success?
+
+    results = background_image_results(JSON.parse(response.body), "ImageMgmnt")
+    upload_result = results.find do |result|
+      result["Path"]? == "Device.ImageMgmnt.LocalImages.#{UPLOAD_SLOT}" && result["Property"]? == "UploadFile"
+    end
+    raise "device did not acknowledge upload of background image #{image_name}" unless upload_result
+
+    results.each do |result|
+      next if result["StatusId"]? == 0
+
+      if result["StatusId"]? == 9
+        if result["Property"]? == "UploadFilePath" && result["StatusInfo"]? == "File Upload Operation Succeeded"
+          next
+        end
+        next if result == upload_result && result["StatusInfo"]? == "#{image_name}:Success"
+      end
+
+      raise "device rejected upload background image #{image_name}: #{background_image_result_detail(result)}"
+    end
   end
 
   protected def switch_stream(stream_reference : String | Int32, layer : SwitchLayer)

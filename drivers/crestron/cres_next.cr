@@ -77,7 +77,7 @@ abstract class Crestron::CresNext < PlaceOS::Driver
   # ============================================
   # websocket for state changes and get requests
   # ============================================
-  protected def query(path : String, **options, &block : (JSON::Any, ::PlaceOS::Driver::Task) -> Nil)
+  protected def query(path : String, matching : (JSON::Any -> Bool)? = nil, **options, &block : (JSON::Any, ::PlaceOS::Driver::Task) -> Nil)
     request_path = Path["/Device"].join(path).to_s
     tokens = tokenize(request_path)
     parts = tokens.map { |part| %("#{part}":) }
@@ -99,6 +99,8 @@ abstract class Crestron::CresNext < PlaceOS::Driver
         begin
           json = JSON.parse(line)
           tokens.each { |key| json = json[key] }
+          next if matching && !matching.call(json)
+
           block.call json, task
           task.success json
           break

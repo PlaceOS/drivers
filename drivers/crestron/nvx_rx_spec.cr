@@ -78,7 +78,9 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
   # `application/octet-stream` like the PlaceOS uploads endpoint, so we can prove
   # the upload uses the filename-derived `image/*` type instead.
   image_payload = "JPEG-IMAGE-DATA"
+  source_requests = [] of String
   image_server = HTTP::Server.new do |context|
+    source_requests << context.request.resource
     context.response.content_type = "application/octet-stream"
     context.response.print image_payload
   end
@@ -86,10 +88,30 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
   spawn { image_server.listen }
   Fiber.yield
 
-  image_url = "http://127.0.0.1:#{image_addr.port}/i.jpg"
+  source_resource = "/i.jpg?asset=fixture"
+  image_url = "http://127.0.0.1:#{image_addr.port}#{source_resource}"
+  storage_query = "/Device/ImageMgmnt"
+  output_query = "/Device/BackgroundImage/Outputs/Output1"
+  pending_image = %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"UploadFile":"i.jpg","UploadStatus":"Pending","PreviewImage":""}}}}})
+  uploaded_image = %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"Name":"i.jpg","UploadStatus":"Success","PreviewImage":"/preview/Images/Local/i.jpg"}}}}})
+  stored_image = %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"Name":"i.jpg","UploadStatus":"Ready","PreviewImage":"/preview/Images/Local/i.jpg"}}}}})
+  remote_output = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Remote","StatusCode":0,"StatusMessage":"NA","Local":{"ImageName":"","PreviewImage":""}}}}}})
+  local_output = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local","StatusCode":0,"StatusMessage":"Ready","Local":{"ImageName":"i.jpg","PreviewImage":"/preview/Images/Local/i.jpg"}}}}}})
+  upload_ack = %({"Actions":[{"Operation":"SetPartial","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFilePath","StatusId":9,"StatusInfo":"File Upload Operation Succeeded"},{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFile","StatusId":9,"StatusInfo":"i.jpg:Success"}],"TargetObject":"ImageMgmnt","Version":"2.1.0"}]})
+  name_ack = %({"Actions":[{"TargetObject":"BackgroundImage","Results":[{"Path":"Device.BackgroundImage.Outputs.Output1.Local","Property":"ImageName","StatusId":0,"StatusInfo":"OK"}]}]})
+  mode_ack = %({"Actions":[{"TargetObject":"BackgroundImage","Results":[{"Path":"Device.BackgroundImage.Outputs.Output1","Property":"HostBackgroundImage","StatusId":0,"StatusInfo":"OK"}]}]})
+  set_image_name = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"Local":{"ImageName":"i.jpg"}}}}}})
+  set_image_mode = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local"}}}}})
+  retry_filename = ->(body : String) do
+    filename = /filename="([^"]+)"/.match(body).not_nil![1]
+    filename.should_not eq "i.jpg"
+    File.extname(filename).should eq ".jpg"
+    body.should contain(%("UploadFile":"#{filename}"))
+    filename
+  end
 
   begin
-    exec(:set_background_image, image_url)
+    upload = exec(:set_background_image, image_url)
 
     # The driver downloads the image then uploads it to the device as a
     # multipart/form-data POST.
@@ -115,15 +137,125 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
       body.should contain(image_payload)
 
       response.status_code = 200
-      response.print %({"Actions":[{"Operation":"SetPartial","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFile","StatusId":9,"StatusInfo":"i.jpg:Success"}],"TargetObject":"ImageMgmnt","Version":"2.1.0"}]})
+      response.print upload_ack
     end
 
-    # Then it points the output at the freshly uploaded local image.
-    should_send %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local"}}}}})
-    responds %({"Actions":[{"Results":[{"StatusId":9}]}]})
+    # Upload acceptance precedes conversion and selection.
+    should_send storage_query
+    responds pending_image
+    should_send storage_query, 2.seconds
+    responds uploaded_image
+    should_send storage_query, 2.seconds
+    responds stored_image
+    should_send output_query
+    responds %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local"}}}}}\n\n#{remote_output})
 
-    should_send %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"Local":{"ImageName":"i.jpg"}}}}}})
-    responds %({"Actions":[{"Results":[{"StatusId":9}]}]})
+    should_send set_image_name
+    responds name_ack
+    should_send set_image_mode
+    responds mode_ack
+    should_send output_query
+    responds local_output
+    upload.get.raw.should be_nil
+
+    # Reconciliation checks both the selected output and the stored image.
+    readiness = exec(:background_image_ready?)
+    should_send output_query
+    responds local_output
+    should_send storage_query
+    responds stored_image
+    readiness.get.as_bool.should be_true
+
+    readiness = exec(:background_image_ready?)
+    should_send output_query
+    responds local_output
+    should_send storage_query
+    responds %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"Name":"i.jpg","PreviewImage":""}}}}})
+    readiness.get.as_bool.should be_false
+
+    readiness = exec(:background_image_ready?)
+    should_send output_query
+    responds remote_output
+    readiness.get.as_bool.should be_false
+
+    # An uncertain upload is retried from the same URL under a fresh filename.
+    first_request = source_requests.size
+    recovered_upload = exec(:set_background_image, image_url)
+    expect_http_request do |request, response|
+      request.body.not_nil!.gets_to_end.should contain(%(filename="i.jpg"))
+      response.status_code = 503
+    end
+    upload_retry_name = ""
+    expect_http_request do |request, response|
+      body = request.body.not_nil!.gets_to_end
+      upload_retry_name = retry_filename.call(body)
+      body.should contain(image_payload)
+      response.status_code = 200
+      response.print upload_ack.gsub("i.jpg", upload_retry_name)
+    end
+    should_send storage_query
+    responds stored_image.gsub("i.jpg", upload_retry_name)
+    should_send output_query
+    responds local_output
+    should_send set_image_name.gsub("i.jpg", upload_retry_name)
+    responds name_ack
+    should_send output_query
+    responds local_output.gsub("i.jpg", upload_retry_name)
+    recovered_upload.get.raw.should be_nil
+    source_requests[first_request..].should eq [source_resource, source_resource]
+
+    # Two HTTP 200 responses with NVX rejections exhaust the retry and raise.
+    rejected = exec(:set_background_image, image_url)
+    2.times do |attempt|
+      expect_http_request do |request, response|
+        request.method.should eq("POST")
+        body = request.body.not_nil!.gets_to_end
+        retry_filename.call(body) unless attempt.zero?
+        response.status_code = 200
+        response.print %({"Actions":[{"TargetObject":"ImageMgmnt","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFile","StatusId":3,"StatusInfo":"Unsupported property"}]}]})
+      end
+    end
+    expect_raises(PlaceOS::Driver::RemoteException, /device rejected upload background image .*\.jpg: Unsupported property/) { rejected.get }
+
+    invalid = exec(:set_background_image, image_url)
+    2.times do |attempt|
+      filename = "i.jpg"
+      expect_http_request do |request, response|
+        request.method.should eq("POST")
+        body = request.body.not_nil!.gets_to_end
+        filename = retry_filename.call(body) unless attempt.zero?
+        response.status_code = 200
+        response.print upload_ack.gsub("i.jpg", filename)
+      end
+      should_send storage_query
+      responds %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"UploadFile":"#{filename}","UploadStatus":"InvalidFile","DetailedMessage":"Unsupported Resolution"}}}}})
+    end
+    expect_raises(PlaceOS::Driver::RemoteException, /device could not store background image .*\.jpg: Unsupported Resolution/) { invalid.get }
+
+    # A selection retry re-reads the output and keeps the already stored file.
+    first_request = source_requests.size
+    recovered_selection = exec(:set_background_image, image_url)
+    expect_http_request do |request, response|
+      request.method.should eq("POST")
+      response.status_code = 200
+      response.print upload_ack
+    end
+    should_send storage_query
+    responds stored_image
+    should_send output_query
+    responds remote_output
+    should_send set_image_name
+    responds name_ack
+    should_send set_image_mode
+    responds %({"Actions":[{"TargetObject":"BackgroundImage","Results":[{"Path":"Device.BackgroundImage.Outputs.Output1","Property":"HostBackgroundImage","StatusId":-4,"StatusInfo":"Generic error"}]}]})
+    should_send output_query
+    responds %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Remote","StatusCode":0,"StatusMessage":"NA","Local":{"ImageName":"i.jpg","PreviewImage":"/preview/Images/Local/i.jpg"}}}}}})
+    should_send set_image_mode
+    responds mode_ack
+    should_send output_query
+    responds local_output
+    recovered_selection.get.raw.should be_nil
+    source_requests[first_request..].should eq [source_resource]
   ensure
     image_server.close
   end
