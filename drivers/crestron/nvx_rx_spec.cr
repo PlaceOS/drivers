@@ -98,20 +98,25 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
   remote_output = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Remote","StatusCode":0,"StatusMessage":"NA","Local":{"ImageName":"","PreviewImage":""}}}}}})
   local_output = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local","StatusCode":0,"StatusMessage":"Ready","Local":{"ImageName":"i.jpg","PreviewImage":"/preview/Images/Local/i.jpg"}}}}}})
   upload_ack = %({"Actions":[{"Operation":"SetPartial","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFilePath","StatusId":9,"StatusInfo":"File Upload Operation Succeeded"},{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFile","StatusId":9,"StatusInfo":"i.jpg:Success"}],"TargetObject":"ImageMgmnt","Version":"2.1.0"}]})
+  aggregate_upload_ack = %({"Actions":[{"Operation":"SetPartial","Results":[{"Path":"Device.ImageMgmnt","StatusId":0,"StatusInfo":"OK"}],"TargetObject":"ImageMgmnt","Version":"2.1.0"}]})
   name_ack = %({"Actions":[{"TargetObject":"BackgroundImage","Results":[{"Path":"Device.BackgroundImage.Outputs.Output1.Local","Property":"ImageName","StatusId":0,"StatusInfo":"OK"}]}]})
   mode_ack = %({"Actions":[{"TargetObject":"BackgroundImage","Results":[{"Path":"Device.BackgroundImage.Outputs.Output1","Property":"HostBackgroundImage","StatusId":0,"StatusInfo":"OK"}]}]})
   set_image_name = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"Local":{"ImageName":"i.jpg"}}}}}})
   set_image_mode = %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local"}}}}})
-  retry_filename = ->(body : String) do
+  upload_filenames = [] of String
+  local_filename = ->(body : String) do
     filename = /filename="([^"]+)"/.match(body).not_nil![1]
     filename.should_not eq "i.jpg"
     File.extname(filename).should eq ".jpg"
+    upload_filenames.should_not contain(filename)
+    upload_filenames << filename
     body.should contain(%("UploadFile":"#{filename}"))
     filename
   end
 
   begin
     upload = exec(:set_background_image, image_url)
+    first_filename = ""
 
     # The driver downloads the image then uploads it to the device as a
     # multipart/form-data POST.
@@ -129,48 +134,57 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
       body.should contain(%(name="UploadFilePath"))
       body.should contain("/data/web/tmp/Images/Local/")
       body.should contain(%("Image01"))
-      body.should contain(%("UploadFile":"i.jpg"))
-      body.should contain(%(filename="i.jpg"))
+      first_filename = local_filename.call(body)
       # filename-derived content type wins over the generic download header
       body.should contain("image/jpeg")
       body.should_not contain("application/octet-stream")
       body.should contain(image_payload)
 
       response.status_code = 200
-      response.print upload_ack
+      response.print upload_ack.gsub("i.jpg", first_filename)
     end
 
     # Upload acceptance precedes conversion and selection.
     should_send storage_query
-    responds pending_image
-    should_send storage_query, 2.seconds
-    responds uploaded_image
-    should_send storage_query, 2.seconds
-    responds stored_image
+    pending_at = Time.instant
+    responds pending_image.gsub("i.jpg", first_filename)
+    should_send storage_query, 7.seconds
+    (Time.instant - pending_at).should be >= 4.9.seconds
+    responds uploaded_image.gsub("i.jpg", first_filename)
+    should_send storage_query, 7.seconds
+    responds stored_image.gsub("i.jpg", first_filename)
     should_send output_query
     responds %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local"}}}}}\n\n#{remote_output})
 
-    should_send set_image_name
+    should_send set_image_name.gsub("i.jpg", first_filename)
     responds name_ack
     should_send set_image_mode
     responds mode_ack
     should_send output_query
-    responds local_output
+    responds local_output.gsub("i.jpg", first_filename)
     upload.get.raw.should be_nil
+    source_requests.should eq [source_resource]
+
+    # The longer readiness sequence overlaps the initial device discovery.
+    expect_http_request(2.seconds) do |request, response|
+      request.method.should eq("GET")
+      request.path.should eq("/Device/DeviceInfo")
+      response.print %({"Device":{"DeviceInfo":{"Model":"DM-NVX-363","Category":"DM","Version":"2.1.0","DeviceVersion":"7.1.5259.00090","PufVersion":"7.1.5259.00090","BuildDate":"Jul 16 2025","MacAddress":"00:00:00:00:00:01","SerialNumber":"fixture","Name":"projector"}}})
+    end
 
     # Reconciliation checks both the selected output and the stored image.
     readiness = exec(:background_image_ready?)
     should_send output_query
-    responds local_output
+    responds local_output.gsub("i.jpg", first_filename)
     should_send storage_query
-    responds stored_image
+    responds stored_image.gsub("i.jpg", first_filename)
     readiness.get.as_bool.should be_true
 
     readiness = exec(:background_image_ready?)
     should_send output_query
-    responds local_output
+    responds local_output.gsub("i.jpg", first_filename)
     should_send storage_query
-    responds %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"Name":"i.jpg","PreviewImage":""}}}}})
+    responds %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"Name":"#{first_filename}","PreviewImage":""}}}}})
     readiness.get.as_bool.should be_false
 
     readiness = exec(:background_image_ready?)
@@ -182,21 +196,27 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
     first_request = source_requests.size
     recovered_upload = exec(:set_background_image, image_url)
     expect_http_request do |request, response|
-      request.body.not_nil!.gets_to_end.should contain(%(filename="i.jpg"))
+      local_filename.call(request.body.not_nil!.gets_to_end)
       response.status_code = 503
     end
     upload_retry_name = ""
     expect_http_request do |request, response|
       body = request.body.not_nil!.gets_to_end
-      upload_retry_name = retry_filename.call(body)
+      upload_retry_name = local_filename.call(body)
       body.should contain(image_payload)
       response.status_code = 200
-      response.print upload_ack.gsub("i.jpg", upload_retry_name)
+      response.print aggregate_upload_ack
     end
+    # An aggregate acknowledgement is provisional. The previous Ready file
+    # and a matching Pending file cannot confirm the new upload.
     should_send storage_query
+    responds stored_image.gsub("i.jpg", first_filename)
+    should_send storage_query, 7.seconds
+    responds pending_image.gsub("i.jpg", upload_retry_name)
+    should_send storage_query, 7.seconds
     responds stored_image.gsub("i.jpg", upload_retry_name)
     should_send output_query
-    responds local_output
+    responds local_output.gsub("i.jpg", first_filename)
     should_send set_image_name.gsub("i.jpg", upload_retry_name)
     responds name_ack
     should_send output_query
@@ -204,28 +224,27 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
     recovered_upload.get.raw.should be_nil
     source_requests[first_request..].should eq [source_resource, source_resource]
 
-    # Two HTTP 200 responses with NVX rejections exhaust the retry and raise.
+    # Two HTTP 200 responses with fully qualified NVX rejections exhaust the
+    # retry before querying storage or changing the selected image.
     rejected = exec(:set_background_image, image_url)
-    2.times do |attempt|
+    2.times do
       expect_http_request do |request, response|
         request.method.should eq("POST")
-        body = request.body.not_nil!.gets_to_end
-        retry_filename.call(body) unless attempt.zero?
+        local_filename.call(request.body.not_nil!.gets_to_end)
         response.status_code = 200
-        response.print %({"Actions":[{"TargetObject":"ImageMgmnt","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFile","StatusId":3,"StatusInfo":"Unsupported property"}]}]})
+        response.print %({"Actions":[{"TargetObject":"ImageMgmnt","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01.UploadFile","StatusId":3,"StatusInfo":"Unsupported property"}]}]})
       end
     end
     expect_raises(PlaceOS::Driver::RemoteException, /device rejected upload background image .*\.jpg: Unsupported property/) { rejected.get }
 
     invalid = exec(:set_background_image, image_url)
-    2.times do |attempt|
-      filename = "i.jpg"
+    2.times do
+      filename = ""
       expect_http_request do |request, response|
         request.method.should eq("POST")
-        body = request.body.not_nil!.gets_to_end
-        filename = retry_filename.call(body) unless attempt.zero?
+        filename = local_filename.call(request.body.not_nil!.gets_to_end)
         response.status_code = 200
-        response.print upload_ack.gsub("i.jpg", filename)
+        response.print aggregate_upload_ack
       end
       should_send storage_query
       responds %({"Device":{"ImageMgmnt":{"Version":"2.1.0","LocalImages":{"Image01":{"UploadFile":"#{filename}","UploadStatus":"InvalidFile","DetailedMessage":"Unsupported Resolution"}}}}})
@@ -235,25 +254,27 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
     # A selection retry re-reads the output and keeps the already stored file.
     first_request = source_requests.size
     recovered_selection = exec(:set_background_image, image_url)
+    selection_filename = ""
     expect_http_request do |request, response|
       request.method.should eq("POST")
+      selection_filename = local_filename.call(request.body.not_nil!.gets_to_end)
       response.status_code = 200
-      response.print upload_ack
+      response.print upload_ack.gsub("i.jpg", selection_filename)
     end
     should_send storage_query
-    responds stored_image
+    responds stored_image.gsub("i.jpg", selection_filename)
     should_send output_query
     responds remote_output
-    should_send set_image_name
+    should_send set_image_name.gsub("i.jpg", selection_filename)
     responds name_ack
     should_send set_image_mode
     responds %({"Actions":[{"TargetObject":"BackgroundImage","Results":[{"Path":"Device.BackgroundImage.Outputs.Output1","Property":"HostBackgroundImage","StatusId":-4,"StatusInfo":"Generic error"}]}]})
     should_send output_query
-    responds %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Remote","StatusCode":0,"StatusMessage":"NA","Local":{"ImageName":"i.jpg","PreviewImage":"/preview/Images/Local/i.jpg"}}}}}})
+    responds %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Remote","StatusCode":0,"StatusMessage":"NA","Local":{"ImageName":"#{selection_filename}","PreviewImage":"/preview/Images/Local/#{selection_filename}"}}}}}})
     should_send set_image_mode
     responds mode_ack
     should_send output_query
-    responds local_output
+    responds local_output.gsub("i.jpg", selection_filename)
     recovered_selection.get.raw.should be_nil
     source_requests[first_request..].should eq [source_resource]
   ensure

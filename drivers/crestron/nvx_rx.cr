@@ -212,11 +212,13 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   UPLOAD_DIR  = "/data/web/tmp/Images/Local/"
   UPLOAD_SLOT = "Image01"
 
-  BACKGROUND_IMAGE_COMMAND_TIMEOUT = 5.seconds
-  BACKGROUND_IMAGE_UPLOAD_TIMEOUT  = 60.seconds
-  BACKGROUND_IMAGE_OUTPUT_TIMEOUT  = 15.seconds
-  BACKGROUND_IMAGE_RETRY_BUDGET    = 105.seconds
-  BACKGROUND_IMAGE_POLL_INTERVAL   = 1.second
+  BACKGROUND_IMAGE_COMMAND_TIMEOUT  = 5.seconds
+  BACKGROUND_IMAGE_UPLOAD_TIMEOUT   = 60.seconds
+  BACKGROUND_IMAGE_OUTPUT_TIMEOUT   = 15.seconds
+  BACKGROUND_IMAGE_RETRY_BUDGET     = 105.seconds
+  BACKGROUND_IMAGE_POLL_INTERVAL    = 1.second
+  BACKGROUND_IMAGE_STORAGE_INTERVAL = 5.seconds
+  BACKGROUND_IMAGE_STORAGE_CHECKS   = 12
 
   @uploading_background_image = Atomic(Bool).new(false)
 
@@ -245,24 +247,29 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
 
     # The NVX's remote-server image pull is too limited, so instead we download
     # the image ourselves and upload it onto the device for local hosting.
-    image_name = File.basename(uri.path)
-    raise ArgumentError.new("missing background image filename") if image_name.in?({"", "/", ".", ".."})
+    source_filename = File.basename(uri.path)
+    raise ArgumentError.new("missing background image filename") if source_filename.in?({"", "/", ".", ".."})
+    extension = File.extname(source_filename)
     raise "another background image upload is in progress" if @uploading_background_image.swap(true)
 
     begin
       # Both attempts share a polling budget. The HTTP requests retain their
       # transport timeouts.
       deadline = Time.instant + BACKGROUND_IMAGE_RETRY_BUDGET
-      image_stored = false
+      stored_image_name : String? = nil
       2.times do |attempt|
+        # NVX caches by filename. A fresh name also makes storage read-back
+        # proof that this upload arrived, even when the POST ack is sparse.
+        image_name = stored_image_name || "#{Random::Secure.hex(8)}#{extension}"
         begin
-          unless image_stored
+          unless stored_image_name
             upload_local_image(uri, image_name)
             storage_deadline = Math.min(deadline, Time.instant + BACKGROUND_IMAGE_UPLOAD_TIMEOUT)
-            wait_for_background_image(storage_deadline, "background image #{image_name} to be stored") do
+            wait_for_background_image(storage_deadline, "background image #{image_name} to be stored",
+              interval: BACKGROUND_IMAGE_STORAGE_INTERVAL, max_checks: BACKGROUND_IMAGE_STORAGE_CHECKS) do
               stored_background_image_ready?(image_name, raise_on_error: true)
             end
-            image_stored = true
+            stored_image_name = image_name
           end
 
           select_background_image(image_name, output_index, deadline)
@@ -270,13 +277,10 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
         rescue error
           raise error unless attempt.zero? && Time.instant + BACKGROUND_IMAGE_COMMAND_TIMEOUT < deadline
 
-          if image_stored
+          if stored_image_name
             logger.warn { "retrying background image selection on Output#{output_index}" }
           else
-            # The decoder may have received the first upload even if its
-            # response or readiness check failed. Avoid its filename cache.
-            image_name = "#{Random::Secure.hex(8)}#{File.extname(image_name)}"
-            logger.warn { "retrying background image upload as #{image_name}" }
+            logger.warn { "retrying background image upload after #{error.class}" }
           end
         end
       end
@@ -343,13 +347,19 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     end
   end
 
-  private def wait_for_background_image(deadline : Time::Instant, description : String, &ready : -> Bool) : Nil
+  private def wait_for_background_image(deadline : Time::Instant, description : String,
+                                        *, interval : Time::Span = BACKGROUND_IMAGE_POLL_INTERVAL,
+                                        max_checks : Int32? = nil, &ready : -> Bool) : Nil
+    checks = 0
     while Time.instant < deadline
       return if ready.call
+      checks += 1
+      break if max_checks && checks >= max_checks
+
       remaining = deadline - Time.instant
       break unless remaining.positive?
 
-      sleep Math.min(remaining, BACKGROUND_IMAGE_POLL_INTERVAL)
+      sleep Math.min(remaining, interval)
     end
     raise "timed out waiting for #{description}"
   end
@@ -396,10 +406,14 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     watchdog.try &.cancel
   end
 
-  private def background_image_results(response : JSON::Any, target : String) : Array(JSON::Any)
-    actions = response["Actions"]?.try(&.as_a?) || [] of JSON::Any
-    actions.select { |action| action["TargetObject"]? == target }.flat_map do |action|
-      action["Results"]?.try(&.as_a?) || [] of JSON::Any
+  private def background_image_results(response : JSON::Any, target : String? = nil) : Array(JSON::Any)
+    actions = response.as_h?.try(&.["Actions"]?).try(&.as_a?) || [] of JSON::Any
+    actions.compact_map(&.as_h?).flat_map do |action|
+      if !target || action["TargetObject"]? == target
+        action["Results"]?.try(&.as_a?).try(&.select(&.as_h?)) || [] of JSON::Any
+      else
+        [] of JSON::Any
+      end
     end
   end
 
@@ -425,6 +439,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     # a plain config-set and rejects the payload ("unsupported property").
     boundary = MIME::Multipart.generate_boundary
 
+    download_started = Time.instant
     HTTP::Client.new(uri, tls: tls) do |client|
       client.connect_timeout = 10.seconds
       client.read_timeout = 10.seconds
@@ -442,7 +457,9 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
         end
       end
     end
+    logger.debug { "downloaded background image #{image_name} in #{Time.instant - download_started}" }
 
+    upload_started = Time.instant
     response = post("/Device", body: body.to_slice, headers: HTTP::Headers{
       "Content-Type"     => "multipart/form-data; boundary=#{boundary}",
       "CREST-XSRF-TOKEN" => @xsrf_token,
@@ -450,22 +467,15 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
 
     raise "failed to upload background image #{image_name}: HTTP #{response.status_code}" unless response.success?
 
-    results = background_image_results(JSON.parse(response.body), "ImageMgmnt")
-    upload_result = results.find do |result|
-      result["Path"]? == "Device.ImageMgmnt.LocalImages.#{UPLOAD_SLOT}" && result["Property"]? == "UploadFile"
-    end
-    raise "device did not acknowledge upload of background image #{image_name}" unless upload_result
+    # Crestron can acknowledge the multipart request at object level. Inspect
+    # all results for errors and let inventory read-back verify the actual file.
+    results = response.body.blank? ? [] of JSON::Any : background_image_results(JSON.parse(response.body))
+    logger.debug { "background image upload #{image_name}: HTTP #{response.status_code} in #{Time.instant - upload_started}, result statuses #{results.compact_map { |result| result["StatusId"]?.try(&.as_i?) }}" }
 
     results.each do |result|
-      next if result["StatusId"]? == 0
-
-      if result["StatusId"]? == 9
-        if result["Property"]? == "UploadFilePath" && result["StatusInfo"]? == "File Upload Operation Succeeded"
-          next
-        end
-        next if result == upload_result && result["StatusInfo"]? == "#{image_name}:Success"
-      end
-
+      status = result["StatusId"]?
+      next if !status || status == 0
+      next if status == 9 && result["StatusInfo"]?.in?({"File Upload Operation Succeeded", "#{image_name}:Success"})
       raise "device rejected upload background image #{image_name}: #{background_image_result_detail(result)}"
     end
   end
