@@ -78,6 +78,11 @@ DriverSpecs.mock_driver "Stripe::Payments" do
     reply response, {object: "list", has_more: false, data: [{id: "cus_old", email: "user2@example.com", metadata: {placeos_user_id: "user-9"}}]}
   end
   expect_http_request do |request, response|
+    request.path.should eq "/v1/customers/search"
+    request.query_params["query"].should eq "metadata['placeos_user_id']:'user-2'"
+    reply response, {object: "search_result", has_more: false, data: [] of String}
+  end
+  expect_http_request do |request, response|
     request.path.should eq "/v1/customers"
     request.headers["Idempotency-Key"].should eq "placeos-customer-user-2"
     form(request)["metadata[placeos_user_id]"].should eq "user-2"
@@ -377,6 +382,32 @@ DriverSpecs.mock_driver "Stripe::Payments" do
     removed.get.raw.should be_nil
   end
 
+  it "keeps the saved cards of a user whose email changed" do
+    methods = exec(:list_payment_methods, user_id: "user-3")
+    expect_http_request do |request, response|
+      request.query_params["email"].should eq "user3@example.com"
+      reply response, {object: "list", has_more: false, data: [] of String}
+    end
+    expect_http_request do |request, response|
+      request.path.should eq "/v1/customers/search"
+      reply response, {object: "search_result", has_more: false, data: [{id: "cus_3", email: "old3@example.com", metadata: {placeos_user_id: "user-3"}}]}
+    end
+    expect_http_request do |request, response|
+      request.path.should eq "/v1/customers/cus_3"
+      form(request)["email"].should eq "user3@example.com"
+      reply response, {id: "cus_3", email: "user3@example.com"}
+    end
+    expect_http_request do |request, response|
+      request.path.should eq "/v1/customers/cus_3"
+      reply response, {id: "cus_3"}
+    end
+    expect_http_request do |request, response|
+      request.path.should eq "/v1/customers/cus_3/payment_methods"
+      reply response, {object: "list", has_more: false, data: [{id: "pm_3", type: "card", customer: "cus_3", card: {brand: "visa", last4: "1111", exp_month: 8, exp_year: 2030}}]}
+    end
+    Array(Stripe::PaymentMethod).from_json(methods.get.to_json).map(&.id).should eq ["pm_3"]
+  end
+
   # ===================================
   # Lists
   # ===================================
@@ -397,7 +428,8 @@ DriverSpecs.mock_driver "Stripe::Payments" do
   it "lists only the invoices of a user who is not privileged" do
     list = exec(:list_invoices, {user_email: "someone@example.com"}, user_id: "user-2")
     expect_http_request do |request, response|
-      request.query_params["query"].should eq "metadata['placeos']:'true' AND metadata['placeos_user_email']:'user2@example.com'"
+      # by user ID, as an email can move to another user
+      request.query_params["query"].should eq "metadata['placeos']:'true' AND metadata['placeos_user_id']:'user-2'"
       reply response, {object: "search_result", data: [] of String, has_more: false}
     end
     Stripe::PaymentPage(Stripe::Invoice).from_json(list.get.to_json).items.should be_empty
@@ -559,6 +591,42 @@ DriverSpecs.mock_driver "Stripe::Payments" do
     end
     Stripe::Invoice.from_json(sent.get.to_json).status.should eq Stripe::InvoiceStatus::Paid
   end
+
+  it "gives a staff invoice to the PlaceOS user with the email" do
+    request = {user_email: "User3@example.com", items: [{resource_type: "catering", resource_id: "coffee", zone_id: "zone-building"}], due_days: 14, send: false}
+    created = exec(:create_invoice, request, user_id: "user-1")
+    expect_http_request do |request, response|
+      request.path.should eq "/v1/customers"
+      reply response, {object: "list", has_more: false, data: [] of String}
+    end
+    expect_http_request do |_request, response|
+      reply response, {id: "cus_billing", email: "user3@example.com"}
+    end
+    invoice_meta = {} of String => String
+    expect_http_request do |request, response|
+      request.path.should eq "/v1/invoices"
+      form(request).each { |key, value| invoice_meta[$1] = value if key =~ /\Ametadata\[(.+)\]\z/ }
+      invoice_meta["placeos_user_id"].should eq "user-3"
+      reply response, invoice_json("draft", invoice_meta, id: "in_9")
+    end
+    expect_http_request do |request, response|
+      form(request)["amount"].should eq "450"
+      reply response, {id: "ii_1"}
+    end
+    expect_http_request do |_request, response|
+      reply response, invoice_json("draft", invoice_meta.merge({"placeos" => "true"}), id: "in_9")
+    end
+    Stripe::Invoice.from_json(created.get.to_json).status.should eq Stripe::InvoiceStatus::Draft
+  end
+
+  it "refuses a price in another currency" do
+    settings({api_key: "sk_test_123", currency: "USD", tax_rate: 10.0, privileged_groups: ["payments-admin"]})
+    quote = exec(:quote, items, user_id: "user-2")
+    expect_http_request do |_request, response|
+      reply response, {object: "list", has_more: false, data: products_json}
+    end
+    expect_raises(PlaceOS::Driver::RemoteException, "is in AUD, not USD") { quote.get }
+  end
 end
 
 def reply(response, body)
@@ -619,8 +687,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
     "user-3" => {id: "user-3", email: "user3@example.com", name: "User Three", groups: [] of String, sys_admin: false},
   }
 
+  # by ID or email, like the PlaceOS users API
   def user(id : String)
-    USERS[id]
+    USERS[id]? || USERS.values.find { |user| user[:email].downcase == id.downcase } || raise "User not found"
   end
 
   def zone(zone_id : String)

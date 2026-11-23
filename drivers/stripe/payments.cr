@@ -373,8 +373,10 @@ class Stripe::Payments < PlaceOS::Driver
   def list_invoices(query : InvoiceQuery) : PaymentPage(Invoice)
     user = current_user
     clauses = ["metadata['placeos']:'true'"]
+    # by user ID, so a user who gets a reused email cannot see the invoices
+    # of the old user
     if !privileged?(user)
-      clauses << "metadata['placeos_user_email']:#{search_value(user.email.downcase)}"
+      clauses << "metadata['placeos_user_id']:#{search_value(user.id)}"
     elsif email = query.user_email.presence
       clauses << "metadata['placeos_user_email']:#{search_value(email.downcase)}"
     end
@@ -456,6 +458,11 @@ class Stripe::Payments < PlaceOS::Driver
     name = (request.user_name.presence || email)[0, 100]
     customer = invoice_customer(email, name, "staff")
     meta = {"placeos_user_email" => email, "placeos_user_name" => name}
+    # The PlaceOS user with the email can see the invoice. Without one, for
+    # example for a guest, only staff see it.
+    if owner = (PlaceUser.from_json(staff_api.user(email).get_json) rescue nil)
+      meta["placeos_user_id"] = owner.id
+    end
     invoice = draft_invoice(customer, quote.currency, request.memo || "", quote.items, meta, request.due_days)
     request.send ? send_stripe_invoice(invoice, nil) : to_invoice(invoice)
   end
@@ -486,7 +493,7 @@ class Stripe::Payments < PlaceOS::Driver
     if id = product.id.presence
       existing = products.find(&.id.==(id)) || raise "Product not found"
       params["description"] = product.description
-      if existing.unit_amount != product.unit_amount
+      if existing.unit_amount != product.unit_amount || existing.currency != @currency
         price = Price.from_json stripe("POST", "/v1/prices", URI::Params{
           "product"     => existing.id,
           "currency"    => @currency.downcase,
@@ -543,7 +550,9 @@ class Stripe::Payments < PlaceOS::Driver
 
   # Stripe customer of a user, for payments and saved cards. Only a customer
   # with the ID of the user in its metadata is used, so a user who gets a
-  # reused email cannot use the cards of the old user.
+  # reused email cannot use the cards of the old user. The email list is
+  # current. The search finds the customer after an email change, but it can
+  # be up to a minute late.
   protected def user_customer(user : PlaceUser) : String
     if id = @customers[user.id]?
       return id
@@ -551,10 +560,16 @@ class Stripe::Payments < PlaceOS::Driver
 
     email = user.email.downcase
     list = StripeList(Customer).from_json stripe("GET", "/v1/customers", URI::Params{"email" => email, "limit" => MAX_PAGE_SIZE.to_s})
-    id = list.data.find { |customer| customer.metadata["placeos_user_id"]? == user.id }.try(&.id) || begin
-      params = URI::Params{"email" => email, "name" => user.name[0, 100], "metadata[placeos]" => "true", "metadata[placeos_user_id]" => user.id}
-      Customer.from_json(stripe("POST", "/v1/customers", params, "placeos-customer-#{user.id}")).id
-    end
+    customer = list.data.find { |item| item.metadata["placeos_user_id"]? == user.id }
+    customer ||= search(Customer, "/v1/customers/search", ["metadata['placeos_user_id']:#{search_value(user.id)}"], 1, nil).data.first?
+    id = if customer
+           # keep the email current, so the next email list finds it
+           stripe("POST", "/v1/customers/#{safe_id(customer.id)}", URI::Params{"email" => email}) unless customer.email.try(&.downcase) == email
+           customer.id
+         else
+           params = URI::Params{"email" => email, "name" => user.name[0, 100], "metadata[placeos]" => "true", "metadata[placeos_user_id]" => user.id}
+           Customer.from_json(stripe("POST", "/v1/customers", params, "placeos-customer-#{user.id}")).id
+         end
     @customers.clear if @customers.size >= MAX_CACHE_SIZE
     @customers[user.id] = id
   end
@@ -616,6 +631,8 @@ class Stripe::Payments < PlaceOS::Driver
 
     product = find_product(request, catalogue)
     return unless product
+    # the amount of a price in another currency is not a price in this one
+    raise "The price of #{product.name} is in #{product.currency}, not #{@currency}" unless product.currency == @currency
     minutes = duration || 60
     units = case product.unit
             in .hour? then (minutes / 60).ceil.to_i
@@ -670,14 +687,21 @@ class Stripe::Payments < PlaceOS::Driver
 
     list = [] of PaymentProduct
     starting_after = nil
+    complete = false
     MAX_PRODUCT_PAGES.times do
       params = URI::Params{"limit" => MAX_PAGE_SIZE.to_s, "expand[]" => "data.default_price"}
       params["starting_after"] = starting_after if starting_after
       page = StripeList(Product).from_json stripe("GET", "/v1/products", params)
       page.data.each { |product| to_product(product).try { |item| list << item } }
-      break unless page.has_more && (last = page.data.last?)
+      last = page.data.last?
+      unless page.has_more && last
+        complete = true
+        break
+      end
       starting_after = last.id
     end
+    # A part of the list makes the items of the missing products free
+    raise "The Stripe account has more than #{MAX_PRODUCT_PAGES * MAX_PAGE_SIZE} products" unless complete
     @products_at = Time.instant
     @products = list
   end
