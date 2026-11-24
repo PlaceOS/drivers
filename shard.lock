@@ -7,15 +7,15 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 8.2.1
+    version: 9.4.3
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
-    version: 4.5.0
+    version: 4.7.2
 
   awscr-s3:
     git: https://github.com/taylorfinnell/awscr-s3.git
-    version: 0.10.0
+    version: 0.11.0
 
   awscr-signer:
     git: https://github.com/taylorfinnell/awscr-signer.git
@@ -27,7 +27,7 @@ shards:
 
   azblob:
     git: https://github.com/spider-gazelle/azblob.cr.git
-    version: 0.1.0
+    version: 0.1.1
 
   backtracer:
     git: https://github.com/sija/backtracer.cr.git
@@ -55,7 +55,7 @@ shards:
 
   cookie_jar:
     git: https://github.com/mamantoha/http-cookie_jar.git
-    version: 0.1.0
+    version: 0.2.0
 
   crc16:
     git: https://github.com/maiha/crc16.cr.git
@@ -63,7 +63,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.8.1
+    version: 1.9.0
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -75,7 +75,7 @@ shards:
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
-    version: 0.14.0
+    version: 0.15.0
 
   debug:
     git: https://github.com/sija/debug.cr.git
@@ -87,7 +87,7 @@ shards:
 
   dns:
     git: https://github.com/spider-gazelle/dns.git
-    version: 1.6.1
+    version: 1.6.2
 
   dtls:
     git: https://github.com/spider-gazelle/crystal-dtls.git
@@ -103,7 +103,7 @@ shards:
 
   eventbus:
     git: https://github.com/spider-gazelle/eventbus.git
-    version: 1.1.0
+    version: 1.2.0
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
@@ -119,7 +119,7 @@ shards:
 
   goban:
     git: https://github.com/soya-daizu/goban.git
-    version: 1.8.0+git.commit.b076fb4e91969efd5ee0b2be2ee4cbd74c983548
+    version: 1.9.0+git.commit.7f81e24bff703c1e622f1f616c96dd86cb9fddad
 
   google:
     git: https://github.com/placeos/google.git
@@ -147,7 +147,7 @@ shards:
 
   http_proxy:
     git: https://github.com/mamantoha/http_proxy.git
-    version: 0.15.1
+    version: 0.17.0
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -163,7 +163,7 @@ shards:
 
   json-schema:
     git: https://github.com/spider-gazelle/json-schema.git
-    version: 1.3.3
+    version: 2.1.4
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -179,11 +179,11 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.6.1
+    version: 0.6.2+git.commit.fb9ee92d12dc1bf24a309a5c1f9aeb07a68ecfe2
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
-    version: 2.0.1
+    version: 2.0.2
 
   murmur3:
     git: https://github.com/aca-labs/murmur3.git
@@ -219,15 +219,15 @@ shards:
 
   perf_tools:
     git: https://github.com/crystal-lang/perf-tools.git
-    version: 0.1.0+git.commit.e7c2ab8c94019e5ff58e5d9ad987109bc5532c16
+    version: 0.1.0+git.commit.0d4a451375c15a4d1687f8b5765a80e5cf4f2d13
 
   pg:
     git: https://github.com/will/crystal-pg.git
-    version: 0.30.0
+    version: 0.32.0
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 2.4.1
+    version: 2.5.3
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -235,7 +235,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.30.0
+    version: 4.30.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -251,7 +251,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 8.1.7
+    version: 8.2.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.115.0
+    version: 9.123.7
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
