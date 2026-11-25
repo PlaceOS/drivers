@@ -162,6 +162,20 @@ DriverSpecs.mock_driver "Place::RemoteSetup" do
     devices.has_key?("DEV-LIMIT-1").should be_false
   end
 
+  it "keeps the commands that were sent last" do
+    # earlier examples completed their commands, so the list starts empty
+    1000.times { |index| exec(:configure, "DEV-CMD-#{index}", {system_id: "sys-1"}).get }
+    # a replaced command moves to the end of the list
+    exec(:configure, "DEV-CMD-0", {system_id: "sys-2"}).get
+    exec(:configure, "DEV-CMD-1000", {system_id: "sys-1"}).get
+
+    status["device_DEV-CMD-0"]["config"]["system_id"].should eq "sys-2"
+    status["device_DEV-CMD-1000"]?.should_not be_nil
+    status["device_DEV-CMD-2"]?.should_not be_nil
+    # DEV-CMD-1 was sent first
+    status["device_DEV-CMD-1"]?.should be_nil
+  end
+
   it "removes stale devices, commands and clears" do
     stale = "DEV-STALE"
     exec(:register, stale, "control").get
