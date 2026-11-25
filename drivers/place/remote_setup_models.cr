@@ -95,7 +95,8 @@ module Place::RemoteSetupModels
   end
 
   # Entry in the `show_ids` binding. Devices that match show their device ID
-  # until `expires_at`. A field that is not set matches all devices.
+  # until `expires_at`. A field that is not set does not filter, so an entry
+  # with no `app` and no `system_id` matches all devices.
   struct ShowIds
     include JSON::Serializable
 
