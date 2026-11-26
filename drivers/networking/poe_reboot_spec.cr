@@ -1,0 +1,368 @@
+require "placeos-driver/spec"
+require "snmp"
+
+# A loopback SNMP agent using the wire formats the driver uses on switches.
+private class PoeSwitchFixture
+  ADMIN       = "1.3.6.1.2.1.105.1.1.1.3.1.4"
+  ENTITY_OID  = "1.3.6.1.2.1.47.1.3.2.1.2.200.0"
+  MAC_INDEX   = "0.17.34.51.68.85"
+  ENGINE_ID   = "8000000001020304"
+  DEVICE_IP   = "192.0.2.42"
+  SWITCH_IP   = "127.0.0.1"
+  COMMUNITY   = "poe-spec"
+  V3_USERNAME = "poe-user"
+  V3_AUTH     = "test-auth-password"
+  V3_PRIV     = "test-priv-password"
+
+  getter port : Int32
+  getter writes = [] of Tuple(String, Int32)
+  getter scopes = Set(String).new
+  getter admin = 1
+  property catalyst = false
+  property shared = false
+  property lose_disable_reply = false
+  property reject_enable = false
+  property fdb_present = true
+  property read_neighbors = true
+  property legacy_arp = false
+  property cisco_mapping = true
+  property cisco_mode = 1
+  property shared_fdb = false
+
+  def initialize(host : String = SWITCH_IP, port : Int32 = 0)
+    @socket = UDPSocket.new
+    @socket.bind(host, port)
+    @port = @socket.local_address.port
+    @v3 = SNMP::V3::Session.new(SNMP::V3::Security.new(V3_USERNAME, ENGINE_ID,
+      auth_protocol: :sha256, auth_password: V3_AUTH, priv_protocol: :aes, priv_password: V3_PRIV))
+    @v3.reboot
+    spawn { serve }
+  end
+
+  def close
+    @socket.close
+  end
+
+  private def serve
+    buffer = Bytes.new(65_535)
+    until @socket.closed?
+      length, address = @socket.receive(buffer)
+      packet = IO::Memory.new(buffer[0, length]).read_bytes(ASN1::BER)
+      v3 = packet.children.first.get_integer == SNMP::Version::V3.value
+      if v3
+        params = SNMP::V3::SecurityParams.new(packet.children[2])
+        request = @v3.parse(packet, params.engine_id.empty? ? nil : @v3.security)
+      else
+        request = SNMP::Session.new.parse(packet)
+      end
+
+      response = reply_to(request)
+      if response
+        wire = IO::Memory.new
+        wire.write_bytes(response)
+        @socket.send(wire.to_slice, address)
+      end
+    end
+  rescue error : IO::Error
+    raise error unless @socket.closed?
+  end
+
+  private def reply_to(request : SNMP::Message) : ASN1::BER?
+    if request.is_a?(SNMP::V3::Message) && request.engine_id.empty?
+      pdu = SNMP::PDU.new(request.request_id, [SNMP::VarBind.new("1.3.6.1.6.3.15.1.1.4.0")])
+      scoped = SNMP::V3::ScopedPDU.new(SNMP::Request::Report, pdu, ENGINE_ID)
+      params = SNMP::V3::SecurityParams.new(engine_id: ENGINE_ID, engine_boots: 1)
+      return SNMP::V3::Message.new(scoped, params, id: request.id).to_ber
+    end
+
+    scope = if request.is_a?(SNMP::V3::Message)
+              request.scoped_pdu.context
+            else
+              request.community.split('@', 2)[1]?.try { |vlan| "community@#{vlan}" } || ""
+            end
+    @scopes << scope
+    rows = table(scope)
+    error = SNMP::ErrorStatus::NoError
+    bindings = case request.request
+               when .get_bulk?
+                 cursor = oid_arcs(request.oid)
+                 # The shard decodes the GetBulk max-repetitions slot as error_index.
+                 values = rows.values.select { |value| oid_arcs(value.oid) > cursor }
+                   .sort_by { |value| oid_arcs(value.oid) }.first(request.error_index)
+                 values.empty? ? [exception_binding(request.oid, 2)] : values
+               when .get?
+                 request.varbinds.map { |binding| rows[binding.oid]? || exception_binding(binding.oid, 1) }
+               when .set?
+                 value = request.varbind.get_integer.to_i
+                 @writes << {request.oid, value}
+                 if request.oid != ADMIN || (value == 1 && @reject_enable)
+                   error = SNMP::ErrorStatus::NotWritable
+                 else
+                   @admin = value
+                 end
+                 return nil if value == 2 && @lose_disable_reply
+                 request.varbinds
+               else
+                 raise "Unexpected SNMP request #{request.request}"
+               end
+
+    if request.is_a?(SNMP::V3::Message)
+      pdu = SNMP::PDU.new(request.request_id, bindings, error)
+      scoped = SNMP::V3::ScopedPDU.new(SNMP::Request::Response, pdu, ENGINE_ID, scope)
+      params = SNMP::V3::SecurityParams.new(V3_USERNAME, ENGINE_ID, 1, 0)
+      response = SNMP::V3::Message.new(scoped, params, @v3.security, id: request.id)
+      @v3.prepare(response)
+    else
+      SNMP::Message.new(request.community, SNMP::Request::Response, bindings, request.request_id, error).to_ber
+    end
+  end
+
+  private def oid_arcs(oid : String)
+    oid.split('.').map(&.to_i)
+  end
+
+  private def exception_binding(oid, tag)
+    missing = ASN1::BER.new
+    missing.tag_class = ASN1::BER::TagClass::ContextSpecific
+    missing.tag_number = tag
+    SNMP::VarBind.from_value(oid, missing)
+  end
+
+  private def table(scope)
+    rows = Hash(String, SNMP::VarBind).new
+    if scope.empty?
+      if @read_neighbors
+        mac = ASN1::BER.new.set_bytes(Bytes[0, 17, 34, 51, 68, 85])
+        if @legacy_arp
+          arp_oid = "1.3.6.1.2.1.4.22.1.2.20.192.0.2.42"
+          type_oid = "1.3.6.1.2.1.4.22.1.4.20.192.0.2.42"
+          rows[arp_oid] = SNMP::VarBind.from_value(arp_oid, mac)
+          rows[type_oid] = SNMP::VarBind.from_value(type_oid, 3)
+        else
+          ["20.1.4.192.0.2.42", "20.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.66"].each do |neighbor|
+            mac_oid = "1.3.6.1.2.1.4.35.1.4.#{neighbor}"
+            type_oid = "1.3.6.1.2.1.4.35.1.6.#{neighbor}"
+            rows[mac_oid] = SNMP::VarBind.from_value(mac_oid, mac)
+            rows[type_oid] = SNMP::VarBind.from_value(type_oid, 3)
+          end
+        end
+      end
+      rows[ADMIN] = SNMP::VarBind.from_value(ADMIN, @admin)
+      rows["1.3.6.1.2.1.105.1.1.1.6.1.4"] = SNMP::VarBind.from_value("1.3.6.1.2.1.105.1.1.1.6.1.4", @admin == 1 ? 3 : 2)
+      rows["1.3.6.1.2.1.31.1.1.1.1.10104"] = SNMP::VarBind.from_value("1.3.6.1.2.1.31.1.1.1.1.10104", ASN1::BER.new.set_bytes("Gi1/0/4".to_slice))
+      if @cisco_mapping
+        rows["1.3.6.1.4.1.9.9.402.1.2.1.11.1.4"] = SNMP::VarBind.from_value("1.3.6.1.4.1.9.9.402.1.2.1.11.1.4", 200)
+        rows["1.3.6.1.4.1.9.9.402.1.2.1.1.1.4"] = SNMP::VarBind.from_value("1.3.6.1.4.1.9.9.402.1.2.1.1.1.4", @cisco_mode)
+        rows[ENTITY_OID] = SNMP::VarBind.from_value(ENTITY_OID, ASN1::BER.new.set_object_id("1.3.6.1.2.1.2.2.1.1.10104"))
+      end
+      if @catalyst
+        vid_oid = "1.3.6.1.4.1.9.9.46.1.3.1.1.2.1.42"
+        rows[vid_oid] = SNMP::VarBind.from_value(vid_oid, 1)
+      else
+        vlan_oid = "1.3.6.1.2.1.17.7.1.4.2.1.3.0.42"
+        rows[vlan_oid] = SNMP::VarBind.from_value(vlan_oid, 17)
+        if @shared_fdb
+          other_vid = "1.3.6.1.2.1.17.7.1.4.2.1.3.0.43"
+          rows[other_vid] = SNMP::VarBind.from_value(other_vid, 17)
+        end
+        add_fdb(rows, "1.3.6.1.2.1.17.7.1.2.2.1", "17.", 7) if @fdb_present
+      end
+    elsif @catalyst && {"community@42", "vlan-42"}.includes?(scope)
+      add_fdb(rows, "1.3.6.1.2.1.17.4.3.1", "", 14) if @fdb_present
+    end
+    rows
+  end
+
+  private def add_fdb(rows, table, index_prefix, port)
+    bridge_oid = "1.3.6.1.2.1.17.1.4.1.2.#{port}"
+    rows[bridge_oid] = SNMP::VarBind.from_value(bridge_oid, 10104)
+    indices = [MAC_INDEX]
+    indices << "0.17.34.51.68.86" if @shared
+    indices.each do |mac|
+      port_oid = "#{table}.2.#{index_prefix}#{mac}"
+      status_oid = "#{table}.3.#{index_prefix}#{mac}"
+      rows[port_oid] = SNMP::VarBind.from_value(port_oid, port)
+      rows[status_oid] = SNMP::VarBind.from_value(status_oid, 3)
+    end
+  end
+end
+
+DriverSpecs.mock_driver "Networking::PoeReboot" do
+  fixture = PoeSwitchFixture.new
+  gateway = PoeSwitchFixture.new("127.0.0.2", fixture.port)
+  target = PoeSwitchFixture::DEVICE_IP
+  host = PoeSwitchFixture::SWITCH_IP
+  defaults = {
+    switch_ips: [host], device_ips: [target], mac_prefixes: ["00-11-22"],
+    snmp: {version: "v2c", community: PoeSwitchFixture::COMMUNITY, port: fixture.port, timeout: 1},
+    reboot_off_seconds: 1,
+  }
+
+  it "resolves switch, interface, PoE index and VLAN before cycling power" do
+    settings(defaults)
+    row = status[:switches][host]["ports"][0]
+    row["ip"].should eq(target)
+    row["mac"].should eq("00:11:22:33:44:55")
+    row["vlan"].should eq(42)
+    row["interface_name"].should eq("Gi1/0/4")
+    row["if_index"].should eq(10104)
+    row["poe_group"].should eq(1)
+    row["poe_port"].should eq(4)
+    row["delivering_power"].should eq(true)
+    fixture.writes.should be_empty
+
+    start = Time.instant
+    results = exec(:reboot).get
+    start.elapsed.should be >= 1.second
+    results[0]["outcome"].should eq("rebooted")
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  end
+
+  it "skips wrong manufacturer prefixes and shared ports" do
+    fixture.writes.clear
+    settings(defaults.merge({mac_prefixes: ["aa:bb:cc"]}))
+    status[:unresolved_devices][target].should eq("MAC manufacturer prefix did not match")
+    exec(:reboot).get.as_a.should be_empty
+
+    fixture.shared = true
+    settings(defaults)
+    status[:unresolved_devices][target].should eq("Multiple MAC addresses learned on this interface")
+    exec(:reboot).get.as_a.should be_empty
+    fixture.shared = false
+    fixture.writes.should be_empty
+  end
+
+  it "finds a target through a gateway and the Catalyst v2c VLAN context" do
+    fixture.catalyst = true
+    fixture.read_neighbors = false
+    fixture.scopes.clear
+    settings(defaults.merge({neighbor_ips: ["127.0.0.2"]}))
+    status[:switches][host]["ports"][0]["vlan"].should eq(42)
+    fixture.scopes.should contain("community@42")
+    fixture.read_neighbors = true
+  end
+
+  it "cycles a Catalyst port using authenticated and encrypted SNMPv3" do
+    fixture.writes.clear
+    fixture.scopes.clear
+    settings(defaults.merge({snmp: {
+      version: "v3", username: PoeSwitchFixture::V3_USERNAME, port: fixture.port, timeout: 1,
+      auth_protocol: "sha256", auth_password: PoeSwitchFixture::V3_AUTH,
+      priv_protocol: "aes", priv_password: PoeSwitchFixture::V3_PRIV,
+    }}))
+    results = exec(:reboot).get
+    results[0]["outcome"].should eq("rebooted")
+    fixture.scopes.should contain("vlan-42")
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+    fixture.catalyst = false
+  end
+
+  it "supports an explicit non-Cisco mapping and leaves a shared FDB VLAN unknown" do
+    fixture.cisco_mapping = false
+    fixture.shared_fdb = true
+    settings(defaults.merge({poe_port_mappings: {host => {"10104" => {group: 1, port: 4}}}}))
+    row = status[:switches][host]["ports"][0]
+    row["poe_port"].should eq(4)
+    row["vlan"]?.should be_nil
+    fixture.cisco_mapping = true
+    fixture.shared_fdb = false
+  end
+
+  it "skips Cisco static PoE mode and blocks an ambiguous switch match" do
+    fixture.writes.clear
+    fixture.cisco_mode = 2
+    settings(defaults)
+    status[:unresolved_devices][target].should eq("Cisco PoE mode is not auto")
+    exec(:reboot).get.as_a.should be_empty
+    fixture.cisco_mode = 1
+
+    settings(defaults.merge({switch_ips: [host, "127.0.0.2"]}))
+    status[:unresolved_devices][target].should eq("MAC is on multiple powered PoE ports")
+    exec(:reboot).get.as_a.should be_empty
+    fixture.writes.should be_empty
+    gateway.writes.should be_empty
+  end
+
+  it "resolves legacy ARP and cycles one port once for IPv4 and IPv6 aliases" do
+    fixture.legacy_arp = true
+    settings(defaults)
+    status[:switches][host]["ports"][0]["ip"].should eq(target)
+    fixture.legacy_arp = false
+
+    fixture.writes.clear
+    ipv6 = "2001:db8::42"
+    settings(defaults.merge({device_ips: [target, ipv6]}))
+    results = exec(:reboot).get.as_a
+    results.size.should eq(1)
+    results.first["ips"].as_a.map(&.as_s).should eq([target, ipv6])
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  end
+
+  it "requires current topology and reachable switches before writing" do
+    fixture.writes.clear
+    settings(defaults)
+    fixture.fdb_present = false
+    exec(:reboot).get.as_a.should be_empty
+    status[:unresolved_devices][target].should eq("No verified PoE port learned this MAC")
+    fixture.fdb_present = true
+
+    settings(defaults.merge({switch_ips: [host, "127.0.0.3"], neighbor_ips: [host]}))
+    # An initial poll may still be running while the other switch times out.
+    deadline = Time.instant + 3.seconds
+    until status[:switches]["127.0.0.3"]?.try(&.["error"]?.try(&.as_s?)) || Time.instant >= deadline
+      sleep 25.milliseconds
+    end
+    exec(:reboot).get.as_a.should be_empty
+    status[:last_reboot]["blocked"].should eq("Discovery incomplete")
+    fixture.writes.should be_empty
+  end
+
+  it "restores power after an unacknowledged disable" do
+    fixture.writes.clear
+    fixture.lose_disable_reply = true
+    settings(defaults)
+    results = exec(:reboot).get
+    results[0]["outcome"].should eq("failed")
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+    fixture.admin.should eq(1)
+    fixture.lose_disable_reply = false
+  end
+
+  it "records a failed restore and retries it on the next discovery" do
+    settings(defaults)
+    fixture.writes.clear
+    fixture.reject_enable = true
+    results = exec(:reboot).get
+    results[0]["outcome"].should eq("restore_pending")
+    status[:pending_restore]["index"]["port"].should eq(4)
+    fixture.admin.should eq(2)
+
+    fixture.reject_enable = false
+    exec(:query_state).get
+    status[:pending_restore]?.should be_nil
+    fixture.admin.should eq(1)
+  end
+
+  it "reports invalid reboot schedule settings" do
+    settings(defaults.merge({reboot_cron: "0 3 * * 0", reboot_timezone: "Not/AZone"}))
+    status[:configuration_error].should eq("Invalid reboot_cron or reboot_timezone")
+  end
+
+  it "runs the configured reboot cron in its configured timezone" do
+    fixture.writes.clear
+    location = Time::Location.load("Australia/Sydney")
+    start = Time.local(location) + 3.seconds
+    cron = "#{start.second} #{start.minute} #{start.hour} * * *"
+    settings(defaults.merge({reboot_cron: cron, reboot_timezone: "Australia/Sydney"}))
+
+    deadline = Time.instant + 6.seconds
+    until fixture.writes.size >= 2 || Time.instant >= deadline
+      sleep 25.milliseconds
+    end
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+    settings(defaults)
+  end
+
+  fixture.close
+  gateway.close
+end
