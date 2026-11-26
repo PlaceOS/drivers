@@ -343,6 +343,101 @@ DriverSpecs.mock_driver "Networking::PoeReboot" do
     fixture.admin.should eq(1)
   end
 
+  it "reboots a single device by IP without replacing the configured inventory" do
+    fixture.writes.clear
+    settings(defaults)
+    discovery = status[:switches]
+    last_discovery = status[:last_discovery]
+    individual = "2001:db8::42"
+
+    result = exec(:reboot_device, device_ip: individual).get
+    result["outcome"].should eq("rebooted")
+    result["ips"].as_a.map(&.as_s).should eq([individual])
+    result["switch_ip"].should eq(host)
+    status[:switches].should eq(discovery)
+    status[:last_discovery].should eq(last_discovery)
+    status[:last_reboot]["results"][0].should eq(result)
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  end
+
+  it "requires a fresh, allow-listed and unambiguous IP match" do
+    fixture.writes.clear
+    settings(defaults)
+    fixture.fdb_present = false
+    expect_raises(PlaceOS::Driver::RemoteException, /No verified PoE port/) do
+      exec(:reboot_device, target).get
+    end
+    fixture.fdb_present = true
+
+    settings(defaults.merge({mac_prefixes: ["aa:bb:cc"]}))
+    expect_raises(PlaceOS::Driver::RemoteException, /MAC manufacturer prefix did not match/) do
+      exec(:reboot_device, target).get
+    end
+
+    settings(defaults.merge({switch_ips: [host, "127.0.0.2"]}))
+    expect_raises(PlaceOS::Driver::RemoteException, /MAC is on multiple powered PoE ports/) do
+      exec(:reboot_device, target).get
+    end
+    fixture.writes.should be_empty
+    gateway.writes.should be_empty
+  end
+
+  it "cycles an explicit PSE port without a neighbor entry or interface mapping" do
+    fixture.writes.clear
+    fixture.cisco_mapping = false
+    settings(defaults.merge({device_ips: [] of String, mac_prefixes: [] of String}))
+
+    result = exec(:reboot_port, switch_ip: host, port: 4).get
+    result["outcome"].should eq("rebooted")
+    result["switch_ip"].should eq(host)
+    result["poe_group"].should eq(1)
+    result["poe_port"].should eq(4)
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+
+    fixture.writes.clear
+    wrong_group = exec(:reboot_port, switch_ip: host, port: 4, group: 2).get
+    wrong_group["outcome"].should eq("failed")
+    expect_raises(PlaceOS::Driver::RemoteException, /outside switch_ips/) do
+      exec(:reboot_port, switch_ip: "127.0.0.2", port: 4).get
+    end
+    fixture.writes.should be_empty
+    gateway.writes.should be_empty
+    fixture.cisco_mapping = true
+  end
+
+  it "cycles a switch port identified by its exact interface name" do
+    fixture.writes.clear
+    settings(defaults)
+    result = exec(:reboot_port, host, "Gi1/0/4").get
+    result["outcome"].should eq("rebooted")
+    result["poe_port"].should eq(4)
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+
+    fixture.writes.clear
+    expect_raises(PlaceOS::Driver::RemoteException, /unavailable or ambiguous/) do
+      exec(:reboot_port, host, "Gi1/0/").get
+    end
+    fixture.writes.should be_empty
+  end
+
+  it "recovers an explicit port from a journal without an ifIndex" do
+    settings(defaults)
+    fixture.reject_enable = true
+    result = exec(:reboot_port, host, 4).get
+    result["outcome"].should eq("restore_pending")
+    status[:pending_restore]["if_index"]?.should be_nil
+    fixture.admin.should eq(2)
+
+    expect_raises(PlaceOS::Driver::RemoteException, /Power restoration pending/) do
+      exec(:reboot_device, target).get
+    end
+
+    fixture.reject_enable = false
+    exec(:query_state).get
+    status[:pending_restore]?.should be_nil
+    fixture.admin.should eq(1)
+  end
+
   it "reports invalid reboot schedule settings" do
     settings(defaults.merge({reboot_cron: "0 3 * * 0", reboot_timezone: "Not/AZone"}))
     status[:configuration_error].should eq("Invalid reboot_cron or reboot_timezone")

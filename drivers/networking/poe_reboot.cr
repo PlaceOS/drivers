@@ -43,7 +43,7 @@ class Networking::PoeReboot < PlaceOS::Driver
   record Match, switch_ip : String, index : PoeRebootSnmp::PoeIndex, location : PoeRebootSnmp::FdbLocation,
     state : PortState
 
-  record RestorePoint, switch_ip : String, if_index : Int32, index : PoeRebootSnmp::PoeIndex do
+  record RestorePoint, switch_ip : String, if_index : Int32?, index : PoeRebootSnmp::PoeIndex do
     include JSON::Serializable
   end
 
@@ -89,7 +89,8 @@ class Networking::PoeReboot < PlaceOS::Driver
     options = Options.new(switches, devices, prefixes, neighbors, credentials, off_seconds.seconds, vlans, mappings)
     @options = options
     schedule.in(0.seconds) { query_state }
-    schedule.every(5.minutes) { query_state }
+    schedule.every(1.hour) { query_state }
+    schedule.every(5.minutes) { retry_pending_restore }
     schedule_reboot
   rescue error
     self[:configuration_error] = error.message
@@ -97,12 +98,80 @@ class Networking::PoeReboot < PlaceOS::Driver
   end
 
   def query_state : Nil
-    run_sweep(false)
+    return if @running || @options.nil?
+
+    with_operation do |options|
+      restore_pending(options)
+      discover(options)
+    end
   end
 
   @[Security(Level::Administrator)]
   def reboot : Array(RebootResult)
-    run_sweep(true)
+    with_operation do |options|
+      restore_pending(options)
+      discovery = discover(options)
+      results = [] of RebootResult
+      if discovery[:complete] && !restoration_pending?
+        discovery[:matches].group_by { |match| {match.switch_ip, match.index} }.each_value do |matches|
+          break unless @options == options
+          results << cycle_matches(options, matches)
+          break if restoration_pending?
+        end
+      end
+      record_reboot(results, discovery[:complete] ? nil : "Discovery incomplete")
+      results
+    end
+  end
+
+  # Resolve a device on the configured switches using the configured MAC prefixes.
+  @[Security(Level::Support)]
+  def reboot_device(device_ip : String) : RebootResult
+    ip = Socket::IPAddress.new(device_ip.strip, 0).address
+    manual_reboot do |options|
+      discovery = discover(options, Set{ip}, publish: false)
+      raise "Discovery incomplete for #{ip}" unless discovery[:complete]
+      raise discovery[:unresolved][ip] if discovery[:unresolved].has_key?(ip)
+
+      cycle_matches(options, discovery[:matches])
+    end
+  end
+
+  # Use an exact IF-MIB interface name or the POWER-ETHERNET-MIB port index
+  # and group. The group defaults to 1 for an integer port.
+  @[Security(Level::Support)]
+  def reboot_port(switch_ip : String, port : Int32 | String, group : Int32 = 1) : RebootResult
+    host = Socket::IPAddress.new(switch_ip.strip, 0).address
+    manual_reboot do |options|
+      raise "Switch #{host} is outside switch_ips" unless options.switches.includes?(host)
+      if port.is_a?(Int32)
+        raise ArgumentError.new("PoE group and port must be positive") unless group > 0 && port > 0
+        cycle(options, host, PoeRebootSnmp::PoeIndex.new(group, port), [] of String)
+      else
+        index, if_index = named_port(options, host, port.strip)
+        cycle(options, host, index, [] of String, if_index: if_index)
+      end
+    end
+  end
+
+  private def named_port(options : Options, host : String, name : String)
+    raise ArgumentError.new("Port name is empty") if name.empty?
+
+    with_agent(options, host) do |agent|
+      interfaces = [] of Int32
+      agent.column(PoeRebootSnmp::IF_NAME) do |index, binding|
+        if bytes = agent.octets(binding)
+          interfaces << index.to_i if String.new(bytes) == name
+        end
+      end
+      raise "Interface #{name} is unavailable or ambiguous on #{host}" unless interfaces.size == 1
+
+      if_index = interfaces.first
+      index = PoeRebootSnmp.poe_ports(agent, configured_mapping(options, host))[if_index]?
+      raise "No verified PoE mapping for interface #{name} on #{host}" unless index
+
+      {index, if_index}
+    end
   end
 
   private def configured_ips(key : Symbol)
@@ -119,42 +188,39 @@ class Networking::PoeReboot < PlaceOS::Driver
     logger.error(exception: error) { "invalid PoE reboot schedule" }
   end
 
-  private def run_sweep(reboot_ports : Bool) : Array(RebootResult)
-    results = [] of RebootResult
-    options = @options
-    if @running || options.nil?
-      raise "PoE discovery or reboot is already running, or configuration is invalid" if reboot_ports
-      return results
-    end
+  private def with_operation(&)
+    options = @options || raise "PoE reboot configuration is invalid"
+    raise "PoE discovery or reboot is already running" if @running
 
     @running = true
     begin
-      restore_pending(options)
-      eligible, complete = discover(options)
-      if reboot_ports
-        if complete && !restoration_pending?
-          eligible.group_by { |match| {match.switch_ip, match.index} }.each_value do |matches|
-            break unless @options == options
-            results << cycle(options, matches)
-            break if restoration_pending?
-          end
-        end
-        self[:last_reboot] = {time: Time.utc, results: results,
-                              blocked: !complete ? "Discovery incomplete" : ("Power restoration pending" if restoration_pending?)}
-      end
+      yield options
     ensure
       @running = false
       schedule.in(0.seconds) { query_state } if @options && @options != options && !terminated?
     end
-    results
   end
 
-  private def discover(options : Options) : Tuple(Array(Match), Bool)
+  private def manual_reboot(&)
+    with_operation do |options|
+      raise "Power restoration pending" if restoration_pending?
+      result = yield options
+      record_reboot([result])
+      result
+    end
+  end
+
+  private def record_reboot(results : Array(RebootResult), blocked : String? = nil)
+    blocked ||= "Power restoration pending" if restoration_pending?
+    self[:last_reboot] = {time: Time.utc, results: results, blocked: blocked}
+  end
+
+  private def discover(options : Options, devices : Set(String) = options.devices, publish = true)
     neighbors = Hash(String, Set(String)).new
     neighbor_errors = Hash(String, String).new
-    if !options.switches.empty? && !options.devices.empty? && !options.prefixes.empty?
+    if !options.switches.empty? && !devices.empty? && !options.prefixes.empty?
       options.neighbors.each do |host|
-        with_agent(options, host) { |agent| PoeRebootSnmp.neighbors(agent, options.devices, neighbors) }
+        with_agent(options, host) { |agent| PoeRebootSnmp.neighbors(agent, devices, neighbors) }
       rescue error
         neighbor_errors[host] = error.message || error.class.name
       end
@@ -162,7 +228,7 @@ class Networking::PoeReboot < PlaceOS::Driver
 
     targets = Hash(String, Array(String)).new
     unresolved = Hash(String, String).new
-    options.devices.each do |ip|
+    devices.each do |ip|
       addresses = neighbors[ip]?
       if options.prefixes.empty?
         unresolved[ip] = "No MAC manufacturer prefixes configured"
@@ -205,7 +271,9 @@ class Networking::PoeReboot < PlaceOS::Driver
       end
     end
 
-    return {[] of Match, false} unless @options == options
+    complete = @options == options && switch_errors.empty? && neighbor_errors.empty?
+    result = {matches: eligible, complete: complete, unresolved: unresolved}
+    return result unless publish && @options == options
 
     # Keep every configured switch visible, even when no targets were found.
     by_switch = matches.group_by(&.switch_ip)
@@ -219,7 +287,7 @@ class Networking::PoeReboot < PlaceOS::Driver
     self[:unresolved_devices] = unresolved
     self[:neighbor_errors] = neighbor_errors
     self[:last_discovery] = Time.utc
-    {eligible, switch_errors.empty? && neighbor_errors.empty?}
+    result
   end
 
   private def switch_matches(options : Options, agent : PoeRebootSnmp::Agent, targets : Hash(String, Array(String)), macs : Set(String))
@@ -260,14 +328,15 @@ class Networking::PoeReboot < PlaceOS::Driver
     return "Cisco PoE mode is not auto" if mode && mode != 1
   end
 
-  private def cycle(options : Options, matches : Array(Match)) : RebootResult
+  private def cycle_matches(options : Options, matches : Array(Match)) : RebootResult
     match = matches.first
-    host = match.switch_ip
-    index = match.index
-    ips = matches.map(&.state.ip)
-    begin
-      with_agent(options, host) do |agent|
-        location = match.location
+    cycle(options, match.switch_ip, match.index, matches.map(&.state.ip), match.location)
+  end
+
+  private def cycle(options : Options, host : String, index : PoeRebootSnmp::PoeIndex, ips : Array(String),
+                    location : PoeRebootSnmp::FdbLocation? = nil, if_index : Int32? = location.try(&.if_index)) : RebootResult
+    with_agent(options, host) do |agent|
+      if location
         agent.in_vlan(location.context_vlan) do |scoped|
           port, status, interface = scoped.read(location.port_oid, location.status_oid,
             "#{PoeRebootSnmp::BRIDGE_IFINDEX}.#{location.bridge_port}")
@@ -276,47 +345,57 @@ class Networking::PoeReboot < PlaceOS::Driver
             raise "learned MAC location changed before reboot"
           end
         end
-        unless PoeRebootSnmp.poe_ports(agent, configured_mapping(options, host))[location.if_index]? == index
-          raise "PoE port mapping changed before reboot"
-        end
-
-        admin_oid = "#{PoeRebootSnmp::PSE_ADMIN}.#{index}"
-        admin, detection, mode, trunk = agent.read(admin_oid, "#{PoeRebootSnmp::PSE_DETECTION}.#{index}",
-          "#{PoeRebootSnmp::CISCO_PSE_MODE}.#{index}", "#{PoeRebootSnmp::CISCO_TRUNK}.#{location.if_index}")
-        if reason = port_issue(agent.integer(admin) == PoeRebootSnmp::ENABLED,
-             agent.integer(detection) == PoeRebootSnmp::DELIVERING, agent.integer(mode), agent.integer(trunk))
-          raise reason
-        end
-        raise "settings changed before reboot" unless @options == options
-
-        self[:pending_restore] = RestorePoint.new(host, location.if_index, index)
-        if @options != options
-          self[:pending_restore] = nil
-          raise "settings changed before reboot"
-        end
-        begin
-          agent.write_integer(admin_oid, PoeRebootSnmp::DISABLED)
-          unless agent.integer(agent.read(admin_oid).first) == PoeRebootSnmp::DISABLED
-            raise "PoE disable could not be verified"
-          end
-          sleep options.off_time
-        ensure
-          # Even an unacknowledged SET can have turned power off.
-          restore_power(agent, admin_oid)
-          self[:pending_restore] = nil
-        end
       end
-      RebootResult.new(ips, host, index.group, index.port, "rebooted", nil)
-    rescue error
-      failure = error.message || error.class.name
-      outcome = restoration_pending? ? "restore_pending" : "failed"
-      logger.error(exception: error) { "PoE reboot #{outcome} for #{ips} on #{host}, port #{index}" }
-      RebootResult.new(ips, host, index.group, index.port, outcome, failure)
+      if if_index && PoeRebootSnmp.poe_ports(agent, configured_mapping(options, host))[if_index]? != index
+        raise "PoE port mapping changed before reboot"
+      end
+
+      admin_oid = "#{PoeRebootSnmp::PSE_ADMIN}.#{index}"
+      admin, detection, mode = agent.read(admin_oid, "#{PoeRebootSnmp::PSE_DETECTION}.#{index}",
+        "#{PoeRebootSnmp::CISCO_PSE_MODE}.#{index}")
+      if location
+        trunk = agent.integer(agent.read("#{PoeRebootSnmp::CISCO_TRUNK}.#{location.if_index}").first)
+      end
+      if reason = port_issue(agent.integer(admin) == PoeRebootSnmp::ENABLED,
+           agent.integer(detection) == PoeRebootSnmp::DELIVERING, agent.integer(mode), trunk)
+        raise reason
+      end
+      raise "settings changed before reboot" unless @options == options
+
+      self[:pending_restore] = RestorePoint.new(host, if_index, index)
+      if @options != options
+        self[:pending_restore] = nil
+        raise "settings changed before reboot"
+      end
+      begin
+        agent.write_integer(admin_oid, PoeRebootSnmp::DISABLED)
+        unless agent.integer(agent.read(admin_oid).first) == PoeRebootSnmp::DISABLED
+          raise "PoE disable could not be verified"
+        end
+        sleep options.off_time
+      ensure
+        # Even an unacknowledged SET can have turned power off.
+        restore_power(agent, admin_oid)
+        self[:pending_restore] = nil
+      end
     end
+    RebootResult.new(ips, host, index.group, index.port, "rebooted", nil)
+  rescue error
+    failure = error.message || error.class.name
+    outcome = restoration_pending? ? "restore_pending" : "failed"
+    logger.error(exception: error) { "PoE reboot #{outcome} for #{ips} on #{host}, port #{index}" }
+    RebootResult.new(ips, host, index.group, index.port, outcome, failure)
   end
 
   private def restoration_pending?
     !self[:pending_restore]?.try(&.raw).nil?
+  end
+
+  private def retry_pending_restore
+    return unless restoration_pending?
+    return if @running || @options.nil?
+
+    with_operation { |options| restore_pending(options) }
   end
 
   private def restore_pending(options : Options)
@@ -326,11 +405,19 @@ class Networking::PoeReboot < PlaceOS::Driver
       raise "switch #{pending.switch_ip} is no longer configured"
     end
     with_agent(options, pending.switch_ip) do |agent|
-      unless PoeRebootSnmp.poe_ports(agent, configured_mapping(options, pending.switch_ip))[pending.if_index]? == pending.index
-        raise "PoE mapping changed for #{pending.switch_ip} interface #{pending.if_index}"
+      if_index = pending.if_index
+      if if_index && PoeRebootSnmp.poe_ports(agent, configured_mapping(options, pending.switch_ip))[if_index]? != pending.index
+        raise "PoE mapping changed for #{pending.switch_ip} interface #{if_index}"
       end
       oid = "#{PoeRebootSnmp::PSE_ADMIN}.#{pending.index}"
-      restore_power(agent, oid) unless agent.integer(agent.read(oid).first) == PoeRebootSnmp::ENABLED
+      case agent.integer(agent.read(oid).first)
+      when PoeRebootSnmp::DISABLED
+        restore_power(agent, oid)
+      when PoeRebootSnmp::ENABLED
+        # The earlier restore succeeded.
+      else
+        raise "PoE administrative state unavailable for #{pending.switch_ip} port #{pending.index}"
+      end
       self[:pending_restore] = nil
     end
   rescue error
