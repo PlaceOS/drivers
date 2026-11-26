@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "dns"
 require "./poe_reboot_snmp"
 
 class Networking::PoeReboot < PlaceOS::Driver
@@ -7,6 +8,7 @@ class Networking::PoeReboot < PlaceOS::Driver
   description "Power cycles devices identified by IP and MAC prefix on managed PoE switches."
 
   default_settings({
+    # Address lists and per-switch setting keys accept IP literals and DNS names.
     switch_ips:   [] of String,
     device_ips:   [] of String,
     mac_prefixes: [] of String,
@@ -34,16 +36,72 @@ class Networking::PoeReboot < PlaceOS::Driver
     neighbors : Array(String), credentials : PoeRebootSnmp::Credentials, off_time : Time::Span,
     vlans : Hash(String, Array(Int32)), mappings : Hash(String, Hash(Int32, PoeRebootSnmp::PoeIndex))
 
+  record SwitchEndpoint, name : String, ip : String
+
+  # Keep DNS answers consistent across the discovery, SETs and recovery journal
+  # for one operation. The next operation can pick up changes in DNS.
+  class AddressResolution
+    @lookups = Hash(Tuple(String, DNS::RecordType), Array(String)).new
+
+    def self.normalize(address : String) : String
+      value = address.strip
+      raise ArgumentError.new("Network address is empty") if value.empty?
+      return Socket::IPAddress.new(value, 0).address if Socket::IPAddress.valid?(value)
+      value.downcase
+    end
+
+    def device_addresses(address : String) : Array(String)
+      return [address] if Socket::IPAddress.valid?(address)
+      ips = lookup(address, :a) + lookup(address, :aaaa)
+      raise Socket::Error.new("Could not resolve DNS name #{address}") if ips.empty?
+      ips
+    end
+
+    def endpoint(address : String) : String
+      return address if Socket::IPAddress.valid?(address)
+
+      # Prefer IPv4 for dual-stack names. Each name should have one management
+      # address per family because the DNS cache stores one answer per type.
+      ips = lookup(address, :a)
+      ips = lookup(address, :aaaa) if ips.empty?
+      raise Socket::Error.new("Could not resolve DNS name #{address}") if ips.empty?
+      raise Socket::Error.new("DNS name #{address} has multiple management addresses") if ips.size > 1
+      ips.first
+    end
+
+    def endpoint?(address : String) : String?
+      endpoint(address)
+    rescue Socket::Error
+      nil
+    end
+
+    def matches?(address : String, ip : String) : Bool
+      return address == ip if Socket::IPAddress.valid?(address)
+      record_type = Socket::IPAddress.valid_v4?(ip) ? DNS::RecordType::A : DNS::RecordType::AAAA
+      lookup(address, record_type) == [ip]
+    end
+
+    private def lookup(address : String, record_type : DNS::RecordType)
+      @lookups[{address, record_type}] ||= begin
+        DNS.query(address, {record_type}).compact_map do |record|
+          record.ip_address.address if record.type == record_type.value
+        end.uniq
+      rescue DNS::Packet::Error | IO::TimeoutError | Socket::Error
+        [] of String
+      end
+    end
+  end
+
   record PortState, ip : String, mac : String, vlan : Int32?, if_index : Int32, interface_name : String?,
     poe_group : Int32, poe_port : Int32, poe_admin_enabled : Bool?, delivering_power : Bool?,
     skip_reason : String? do
     include JSON::Serializable
   end
 
-  record Match, switch_ip : String, index : PoeRebootSnmp::PoeIndex, location : PoeRebootSnmp::FdbLocation,
+  record Match, switch : SwitchEndpoint, index : PoeRebootSnmp::PoeIndex, location : PoeRebootSnmp::FdbLocation,
     state : PortState
 
-  record RestorePoint, switch_ip : String, if_index : Int32?, index : PoeRebootSnmp::PoeIndex do
+  record RestorePoint, switch_ip : String, if_index : Int32?, index : PoeRebootSnmp::PoeIndex, switch_name : String? = nil do
     include JSON::Serializable
   end
 
@@ -61,8 +119,8 @@ class Networking::PoeReboot < PlaceOS::Driver
     @options = nil
     schedule.clear
     self[:configuration_error] = nil
-    switches = configured_ips(:switch_ips)
-    devices = configured_ips(:device_ips).to_set
+    switches = configured_addresses(:switch_ips)
+    devices = configured_addresses(:device_ips).to_set
     prefixes = (setting?(Array(String), :mac_prefixes) || [] of String).map do |value|
       prefix = value.strip.gsub(/[:-]/, "").gsub('.', "").downcase
       raise ArgumentError.new("mac_prefixes must contain hexadecimal manufacturer prefixes (6 to 12 digits)") unless prefix.matches?(/\A[0-9a-f]{6,12}\z/)
@@ -71,11 +129,13 @@ class Networking::PoeReboot < PlaceOS::Driver
     off_seconds = setting?(Int32, :reboot_off_seconds) || 5
     raise ArgumentError.new("reboot_off_seconds must be positive") unless off_seconds > 0
     vlans = setting?(Hash(String, Array(Int32)), :switch_vlans) || {} of String => Array(Int32)
+    vlans = normalize_keys(vlans)
     vlans.each_value do |ids|
       raise ArgumentError.new("switch_vlans must contain VLAN IDs between 1 and 4094") unless ids.all? { |id| (1..4094).includes?(id) }
     end
     mappings = setting?(Hash(String, Hash(Int32, PoeRebootSnmp::PoeIndex)), :poe_port_mappings) ||
                {} of String => Hash(Int32, PoeRebootSnmp::PoeIndex)
+    mappings = normalize_keys(mappings)
     mappings.each_value do |ports|
       unless ports.all? { |if_index, index| if_index > 0 && index.group > 0 && index.port > 0 }
         raise ArgumentError.new("poe_port_mappings must use positive interface, group and port indices")
@@ -84,7 +144,7 @@ class Networking::PoeReboot < PlaceOS::Driver
 
     credentials = setting?(PoeRebootSnmp::Credentials, :snmp) || PoeRebootSnmp::Credentials.from_json("{}")
     credentials.validate unless switches.empty?
-    neighbors = configured_ips(:neighbor_ips)
+    neighbors = configured_addresses(:neighbor_ips)
     neighbors = switches if neighbors.empty?
     options = Options.new(switches, devices, prefixes, neighbors, credentials, off_seconds.seconds, vlans, mappings)
     @options = options
@@ -102,7 +162,7 @@ class Networking::PoeReboot < PlaceOS::Driver
 
     with_operation do |options|
       restore_pending(options)
-      discover(options)
+      discover(options, AddressResolution.new)
     end
   end
 
@@ -110,12 +170,13 @@ class Networking::PoeReboot < PlaceOS::Driver
   def reboot : Array(RebootResult)
     with_operation do |options|
       restore_pending(options)
-      discovery = discover(options)
+      resolution = AddressResolution.new
+      discovery = discover(options, resolution)
       results = [] of RebootResult
       if discovery[:complete] && !restoration_pending?
-        discovery[:matches].group_by { |match| {match.switch_ip, match.index} }.each_value do |matches|
+        discovery[:matches].group_by { |match| {match.switch.ip, match.index} }.each_value do |matches|
           break unless @options == options
-          results << cycle_matches(options, matches)
+          results << cycle_matches(options, resolution, matches)
           break if restoration_pending?
         end
       end
@@ -127,13 +188,14 @@ class Networking::PoeReboot < PlaceOS::Driver
   # Resolve a device on the configured switches using the configured MAC prefixes.
   @[Security(Level::Support)]
   def reboot_device(device_ip : String) : RebootResult
-    ip = Socket::IPAddress.new(device_ip.strip, 0).address
+    address = AddressResolution.normalize(device_ip)
     manual_reboot do |options|
-      discovery = discover(options, Set{ip}, publish: false)
-      raise "Discovery incomplete for #{ip}" unless discovery[:complete]
-      raise discovery[:unresolved][ip] if discovery[:unresolved].has_key?(ip)
+      resolution = AddressResolution.new
+      discovery = discover(options, resolution, Set{address}, publish: false)
+      raise "Discovery incomplete for #{address}" unless discovery[:complete]
+      raise discovery[:unresolved][address] if discovery[:unresolved].has_key?(address)
 
-      cycle_matches(options, discovery[:matches])
+      cycle_matches(options, resolution, discovery[:matches])
     end
   end
 
@@ -141,41 +203,68 @@ class Networking::PoeReboot < PlaceOS::Driver
   # and group. The group defaults to 1 for an integer port.
   @[Security(Level::Support)]
   def reboot_port(switch_ip : String, port : Int32 | String, group : Int32 = 1) : RebootResult
-    host = Socket::IPAddress.new(switch_ip.strip, 0).address
+    address = AddressResolution.normalize(switch_ip)
     manual_reboot do |options|
-      raise "Switch #{host} is outside switch_ips" unless options.switches.includes?(host)
+      resolution = AddressResolution.new
+      switch = configured_switch(options, resolution, address)
+
       if port.is_a?(Int32)
         raise ArgumentError.new("PoE group and port must be positive") unless group > 0 && port > 0
-        cycle(options, host, PoeRebootSnmp::PoeIndex.new(group, port), [] of String)
+        cycle(options, resolution, switch, PoeRebootSnmp::PoeIndex.new(group, port), [] of String)
       else
-        index, if_index = named_port(options, host, port.strip)
-        cycle(options, host, index, [] of String, if_index: if_index)
+        index, if_index = named_port(options, resolution, switch, port.strip)
+        cycle(options, resolution, switch, index, [] of String, if_index: if_index)
       end
     end
   end
 
-  private def named_port(options : Options, host : String, name : String)
+  private def configured_switch(options : Options, resolution : AddressResolution, address : String) : SwitchEndpoint
+    if options.switches.includes?(address)
+      return SwitchEndpoint.new(address, resolution.endpoint(address))
+    end
+
+    matches = options.switches.compact_map do |name|
+      ip = resolution.endpoint?(name)
+      SwitchEndpoint.new(name, ip) if ip && resolution.matches?(address, ip)
+    end.uniq(&.ip)
+    raise "Switch #{address} matches multiple configured switches" if matches.size > 1
+    matches.first? || raise "Switch #{address} is outside switch_ips"
+  end
+
+  private def named_port(options : Options, resolution : AddressResolution, switch : SwitchEndpoint, name : String)
     raise ArgumentError.new("Port name is empty") if name.empty?
 
-    with_agent(options, host) do |agent|
+    with_agent(options, switch.ip) do |agent|
       interfaces = [] of Int32
       agent.column(PoeRebootSnmp::IF_NAME) do |index, binding|
         if bytes = agent.octets(binding)
           interfaces << index.to_i if String.new(bytes) == name
         end
       end
-      raise "Interface #{name} is unavailable or ambiguous on #{host}" unless interfaces.size == 1
+      raise "Interface #{name} is unavailable or ambiguous on #{switch.name}" unless interfaces.size == 1
 
       if_index = interfaces.first
-      index = PoeRebootSnmp.poe_ports(agent, configured_mapping(options, host))[if_index]?
-      raise "No verified PoE mapping for interface #{name} on #{host}" unless index
+      index = PoeRebootSnmp.poe_ports(agent, configured_mapping(options, resolution, switch))[if_index]?
+      raise "No verified PoE mapping for interface #{name} on #{switch.name}" unless index
 
       {index, if_index}
     end
   end
 
-  private def configured_ips(key : Symbol)
-    (setting?(Array(String), key) || [] of String).map { |ip| Socket::IPAddress.new(ip.strip, 0).address }.uniq
+  private def configured_addresses(key : Symbol)
+    (setting?(Array(String), key) || [] of String).map { |address| AddressResolution.normalize(address) }.uniq
+  end
+
+  private def normalize_keys(settings : Hash(String, T)) : Hash(String, T) forall T
+    normalized = Hash(String, T).new
+    settings.each do |address, value|
+      key = AddressResolution.normalize(address)
+      if normalized.has_key?(key) && normalized[key] != value
+        raise ArgumentError.new("Conflicting switch settings for #{key}")
+      end
+      normalized[key] = value
+    end
+    normalized
   end
 
   private def schedule_reboot
@@ -215,74 +304,101 @@ class Networking::PoeReboot < PlaceOS::Driver
     self[:last_reboot] = {time: Time.utc, results: results, blocked: blocked}
   end
 
-  private def discover(options : Options, devices : Set(String) = options.devices, publish = true)
+  private def discover(options : Options, resolution : AddressResolution, devices : Set(String) = options.devices, publish = true)
+    switch_addresses = Hash(String, String).new
+    switch_errors = Hash(String, String).new
+    options.switches.each do |name|
+      switch_addresses[name] = resolution.endpoint(name)
+    rescue error : Socket::Error
+      switch_errors[name] = error.message || error.class.name
+    end
+
+    device_addresses = Hash(String, Array(String)).new
+    unresolved = Hash(String, String).new
+    devices.each do |name|
+      device_addresses[name] = resolution.device_addresses(name)
+    rescue error : Socket::Error
+      unresolved[name] = error.message || error.class.name
+    end
+
     neighbors = Hash(String, Set(String)).new
     neighbor_errors = Hash(String, String).new
-    if !options.switches.empty? && !devices.empty? && !options.prefixes.empty?
-      options.neighbors.each do |host|
-        with_agent(options, host) { |agent| PoeRebootSnmp.neighbors(agent, devices, neighbors) }
+    if !switch_addresses.empty? && !device_addresses.empty? && !options.prefixes.empty?
+      ips = device_addresses.values.flatten.to_set
+      polled = Set(String).new
+      options.neighbors.each do |name|
+        ip = resolution.endpoint(name)
+        next unless polled.add?(ip)
+        with_agent(options, ip) { |agent| PoeRebootSnmp.neighbors(agent, ips, neighbors) }
       rescue error
-        neighbor_errors[host] = error.message || error.class.name
+        neighbor_errors[name] = error.message || error.class.name
       end
     end
 
-    targets = Hash(String, Array(String)).new
-    unresolved = Hash(String, String).new
-    devices.each do |ip|
-      addresses = neighbors[ip]?
+    targets = Hash(String, Set(String)).new
+    matched_addresses = Hash(String, Array(String)).new
+    device_addresses.each do |name, ips|
+      macs = ips.flat_map { |ip| neighbors[ip]?.try(&.to_a) || [] of String }.uniq
       if options.prefixes.empty?
-        unresolved[ip] = "No MAC manufacturer prefixes configured"
-      elsif addresses.nil?
-        unresolved[ip] = "IP neighbor entry unavailable"
-      elsif addresses.size != 1
-        unresolved[ip] = "IP resolves to multiple MAC addresses"
-      elsif options.prefixes.none? { |prefix| addresses.first.starts_with?(prefix) }
-        unresolved[ip] = "MAC manufacturer prefix did not match"
+        unresolved[name] = "No MAC manufacturer prefixes configured"
+      elsif macs.empty?
+        unresolved[name] = "IP neighbor entry unavailable"
+      elsif macs.size != 1
+        unresolved[name] = "IP resolves to multiple MAC addresses"
+      elsif options.prefixes.none? { |prefix| macs.first.starts_with?(prefix) }
+        unresolved[name] = "MAC manufacturer prefix did not match"
       else
-        (targets[addresses.first] ||= [] of String) << ip
-        unresolved[ip] = "No verified PoE port learned this MAC"
+        matched_ips = ips.select { |ip| neighbors.has_key?(ip) }
+        (targets[macs.first] ||= Set(String).new).concat(matched_ips)
+        matched_addresses[name] = matched_ips
+        unresolved[name] = "No verified PoE port learned this MAC"
       end
     end
 
     matches = [] of Match
-    switch_errors = Hash(String, String).new
     unless targets.empty?
       macs = targets.keys.to_set
-      options.switches.each do |host|
-        matches.concat(with_agent(options, host) { |agent| switch_matches(options, agent, targets, macs) })
+      switch_addresses.to_a.uniq(&.last).each do |name, ip|
+        switch = SwitchEndpoint.new(name, ip)
+        matches.concat(with_agent(options, ip) { |agent| switch_matches(options, resolution, switch, agent, targets, macs) })
       rescue error
-        switch_errors[host] = error.message || error.class.name
+        switch_errors[ip] = error.message || error.class.name
       end
     end
 
-    eligible = [] of Match
+    eligible = Set(Match).new
     ambiguous = Set(String).new
-    matches.group_by(&.state.ip).each do |ip, candidates|
+    by_device = matches.group_by(&.state.ip)
+    matched_addresses.each do |name, ips|
+      candidates = ips.flat_map { |ip| by_device[ip]? || [] of Match }
+      next if candidates.empty?
+
       usable = candidates.select { |match| match.state.skip_reason.nil? }
-      case usable.size
+      case usable.uniq { |match| {match.switch.ip, match.index} }.size
       when 0
-        unresolved[ip] = candidates.map(&.state.skip_reason).compact.uniq.join("; ")
+        unresolved[name] = candidates.map(&.state.skip_reason).compact.uniq.join("; ")
       when 1
-        unresolved.delete(ip)
-        eligible << usable.first
+        unresolved.delete(name)
+        eligible.concat(usable)
       else
-        unresolved[ip] = "MAC is on multiple powered PoE ports"
-        ambiguous << ip
+        unresolved[name] = "MAC is on multiple powered PoE ports"
+        ambiguous.concat(ips)
       end
     end
 
     complete = @options == options && switch_errors.empty? && neighbor_errors.empty?
-    result = {matches: eligible, complete: complete, unresolved: unresolved}
+    result = {matches: eligible.to_a, complete: complete, unresolved: unresolved}
     return result unless publish && @options == options
 
-    # Keep every configured switch visible, even when no targets were found.
-    by_switch = matches.group_by(&.switch_ip)
-    self[:switches] = options.switches.to_h do |host|
-      ports = (by_switch[host]? || [] of Match).map do |match|
+    # Use the configured address as the stable key and report the IP in use.
+    by_switch = matches.group_by(&.switch.ip)
+    self[:switches] = options.switches.to_h do |name|
+      ip = switch_addresses[name]?
+      ports = (ip.try { |address| by_switch[address]? } || [] of Match).map do |match|
         state = match.state
-        ambiguous.includes?(state.ip) && state.skip_reason.nil? ? state.copy_with(skip_reason: unresolved[state.ip]) : state
+        ambiguous.includes?(state.ip) && state.skip_reason.nil? ? state.copy_with(skip_reason: "MAC is on multiple powered PoE ports") : state
       end
-      {host, {ports: ports, error: switch_errors[host]?}}
+      {name, {ip: ip, ports: ports, error: switch_errors[name]? || ip.try { |address| switch_errors[address]? }}}
     end
     self[:unresolved_devices] = unresolved
     self[:neighbor_errors] = neighbor_errors
@@ -290,11 +406,13 @@ class Networking::PoeReboot < PlaceOS::Driver
     result
   end
 
-  private def switch_matches(options : Options, agent : PoeRebootSnmp::Agent, targets : Hash(String, Array(String)), macs : Set(String))
-    fdb = PoeRebootSnmp.forwarding(agent, options.vlans[agent.host]?.try(&.uniq), macs)
+  private def switch_matches(options : Options, resolution : AddressResolution, switch : SwitchEndpoint,
+                             agent : PoeRebootSnmp::Agent, targets : Hash(String, Set(String)), macs : Set(String))
+    vlans = switch_setting(options.vlans, resolution, switch)
+    fdb = PoeRebootSnmp.forwarding(agent, vlans.try(&.uniq), macs)
     return [] of Match if fdb.locations.empty?
 
-    mapping = PoeRebootSnmp.poe_ports(agent, configured_mapping(options, agent.host))
+    mapping = PoeRebootSnmp.poe_ports(agent, configured_mapping(options, resolution, switch))
     matches = [] of Match
     fdb.locations.each do |mac, locations|
       locations.group_by(&.if_index).each do |if_index, rows|
@@ -313,7 +431,7 @@ class Networking::PoeReboot < PlaceOS::Driver
           state = PortState.new(ip, mac.scan(/../).join(':', &.[0]), vlans.size == 1 ? vlans.first : nil,
             if_index, agent.octets(name).try { |bytes| String.new(bytes).presence }, index.group, index.port,
             enabled, delivering, reason)
-          matches << Match.new(agent.host, index, rows.first, state)
+          matches << Match.new(switch, index, rows.first, state)
         end
       end
     end
@@ -328,14 +446,15 @@ class Networking::PoeReboot < PlaceOS::Driver
     return "Cisco PoE mode is not auto" if mode && mode != 1
   end
 
-  private def cycle_matches(options : Options, matches : Array(Match)) : RebootResult
+  private def cycle_matches(options : Options, resolution : AddressResolution, matches : Array(Match)) : RebootResult
     match = matches.first
-    cycle(options, match.switch_ip, match.index, matches.map(&.state.ip), match.location)
+    cycle(options, resolution, match.switch, match.index, matches.map(&.state.ip), match.location)
   end
 
-  private def cycle(options : Options, host : String, index : PoeRebootSnmp::PoeIndex, ips : Array(String),
-                    location : PoeRebootSnmp::FdbLocation? = nil, if_index : Int32? = location.try(&.if_index)) : RebootResult
-    with_agent(options, host) do |agent|
+  private def cycle(options : Options, resolution : AddressResolution, switch : SwitchEndpoint,
+                    index : PoeRebootSnmp::PoeIndex, ips : Array(String), location : PoeRebootSnmp::FdbLocation? = nil,
+                    if_index : Int32? = location.try(&.if_index)) : RebootResult
+    with_agent(options, switch.ip) do |agent|
       if location
         agent.in_vlan(location.context_vlan) do |scoped|
           port, status, interface = scoped.read(location.port_oid, location.status_oid,
@@ -346,7 +465,7 @@ class Networking::PoeReboot < PlaceOS::Driver
           end
         end
       end
-      if if_index && PoeRebootSnmp.poe_ports(agent, configured_mapping(options, host))[if_index]? != index
+      if if_index && PoeRebootSnmp.poe_ports(agent, configured_mapping(options, resolution, switch))[if_index]? != index
         raise "PoE port mapping changed before reboot"
       end
 
@@ -362,7 +481,7 @@ class Networking::PoeReboot < PlaceOS::Driver
       end
       raise "settings changed before reboot" unless @options == options
 
-      self[:pending_restore] = RestorePoint.new(host, if_index, index)
+      self[:pending_restore] = RestorePoint.new(switch.ip, if_index, index, switch.name)
       if @options != options
         self[:pending_restore] = nil
         raise "settings changed before reboot"
@@ -379,12 +498,12 @@ class Networking::PoeReboot < PlaceOS::Driver
         self[:pending_restore] = nil
       end
     end
-    RebootResult.new(ips, host, index.group, index.port, "rebooted", nil)
+    RebootResult.new(ips, switch.ip, index.group, index.port, "rebooted", nil)
   rescue error
     failure = error.message || error.class.name
     outcome = restoration_pending? ? "restore_pending" : "failed"
-    logger.error(exception: error) { "PoE reboot #{outcome} for #{ips} on #{host}, port #{index}" }
-    RebootResult.new(ips, host, index.group, index.port, outcome, failure)
+    logger.error(exception: error) { "PoE reboot #{outcome} for #{ips} on #{switch.name}, port #{index}" }
+    RebootResult.new(ips, switch.ip, index.group, index.port, outcome, failure)
   end
 
   private def restoration_pending?
@@ -401,12 +520,16 @@ class Networking::PoeReboot < PlaceOS::Driver
   private def restore_pending(options : Options)
     pending = status?(RestorePoint?, :pending_restore)
     return unless pending
-    unless options.switches.includes?(pending.switch_ip)
-      raise "switch #{pending.switch_ip} is no longer configured"
+    resolution = AddressResolution.new
+    name = pending.switch_name || pending.switch_ip
+    unless options.switches.includes?(name)
+      name = options.switches.find { |configured| resolution.matches?(configured, pending.switch_ip) }
+      raise "switch #{pending.switch_ip} is no longer configured" unless name
     end
-    with_agent(options, pending.switch_ip) do |agent|
+    switch = SwitchEndpoint.new(name, pending.switch_ip)
+    with_agent(options, switch.ip) do |agent|
       if_index = pending.if_index
-      if if_index && PoeRebootSnmp.poe_ports(agent, configured_mapping(options, pending.switch_ip))[if_index]? != pending.index
+      if if_index && PoeRebootSnmp.poe_ports(agent, configured_mapping(options, resolution, switch))[if_index]? != pending.index
         raise "PoE mapping changed for #{pending.switch_ip} interface #{if_index}"
       end
       oid = "#{PoeRebootSnmp::PSE_ADMIN}.#{pending.index}"
@@ -442,8 +565,16 @@ class Networking::PoeReboot < PlaceOS::Driver
     raise SNMP::Error.new("could not verify restored PoE on #{agent.host}, #{oid}", cause: failure)
   end
 
-  private def configured_mapping(options : Options, host : String)
-    options.mappings[host]? || {} of Int32 => PoeRebootSnmp::PoeIndex
+  private def switch_setting(settings : Hash(String, T), resolution : AddressResolution, switch : SwitchEndpoint) : T? forall T
+    values = settings.compact_map do |address, value|
+      value if address == switch.name || resolution.matches?(address, switch.ip)
+    end.uniq
+    raise ArgumentError.new("Conflicting switch settings for #{switch.name}") if values.size > 1
+    values.first?
+  end
+
+  private def configured_mapping(options : Options, resolution : AddressResolution, switch : SwitchEndpoint)
+    switch_setting(options.mappings, resolution, switch) || {} of Int32 => PoeRebootSnmp::PoeIndex
   end
 
   private def with_agent(options : Options, host : String, &)

@@ -17,20 +17,23 @@ private class PoeSwitchFixture
   getter port : Int32
   getter writes = [] of Tuple(String, Int32)
   getter scopes = Set(String).new
-  getter admin = 1
+  property admin = 1
   property catalyst = false
+  property advertise_vlan = true
   property shared = false
   property lose_disable_reply = false
   property reject_enable = false
   property fdb_present = true
   property read_neighbors = true
+  property dns_neighbors = false
+  property dns_conflicting_neighbors = false
   property legacy_arp = false
   property cisco_mapping = true
   property cisco_mode = 1
   property shared_fdb = false
 
   def initialize(host : String = SWITCH_IP, port : Int32 = 0)
-    @socket = UDPSocket.new
+    @socket = UDPSocket.new(Socket::IPAddress.new(host, port).family)
     @socket.bind(host, port)
     @port = @socket.local_address.port
     @v3 = SNMP::V3::Session.new(SNMP::V3::Security.new(V3_USERNAME, ENGINE_ID,
@@ -139,10 +142,18 @@ private class PoeSwitchFixture
           rows[arp_oid] = SNMP::VarBind.from_value(arp_oid, mac)
           rows[type_oid] = SNMP::VarBind.from_value(type_oid, 3)
         else
-          ["20.1.4.192.0.2.42", "20.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.66"].each do |neighbor|
+          neighbors = ["20.1.4.192.0.2.42", "20.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.66"]
+          loopback_v6 = "20.2.16.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1"
+          neighbors.concat(["20.1.4.127.0.0.1", loopback_v6]) if @dns_neighbors
+          neighbors.each do |neighbor|
             mac_oid = "1.3.6.1.2.1.4.35.1.4.#{neighbor}"
             type_oid = "1.3.6.1.2.1.4.35.1.6.#{neighbor}"
-            rows[mac_oid] = SNMP::VarBind.from_value(mac_oid, mac)
+            neighbor_mac = if @dns_conflicting_neighbors && neighbor == loopback_v6
+                             ASN1::BER.new.set_bytes(Bytes[0, 17, 34, 51, 68, 86])
+                           else
+                             mac
+                           end
+            rows[mac_oid] = SNMP::VarBind.from_value(mac_oid, neighbor_mac)
             rows[type_oid] = SNMP::VarBind.from_value(type_oid, 3)
           end
         end
@@ -157,7 +168,7 @@ private class PoeSwitchFixture
       end
       if @catalyst
         vid_oid = "1.3.6.1.4.1.9.9.46.1.3.1.1.2.1.42"
-        rows[vid_oid] = SNMP::VarBind.from_value(vid_oid, 1)
+        rows[vid_oid] = SNMP::VarBind.from_value(vid_oid, 1) if @advertise_vlan
       else
         vlan_oid = "1.3.6.1.2.1.17.7.1.4.2.1.3.0.42"
         rows[vlan_oid] = SNMP::VarBind.from_value(vlan_oid, 17)
@@ -436,6 +447,121 @@ DriverSpecs.mock_driver "Networking::PoeReboot" do
     exec(:query_state).get
     status[:pending_restore]?.should be_nil
     fixture.admin.should eq(1)
+  end
+
+  it "accepts names for switch, neighbor, device, VLAN and PoE mapping settings" do
+    fixture.writes.clear
+    fixture.scopes.clear
+    fixture.dns_neighbors = true
+    fixture.catalyst = true
+    fixture.advertise_vlan = false
+    fixture.cisco_mapping = false
+    settings(defaults.merge({
+      switch_ips:        [host, "localhost"],
+      device_ips:        ["localhost"],
+      neighbor_ips:      ["LOCALHOST"],
+      switch_vlans:      {"LOCALHOST" => [42]},
+      poe_port_mappings: {"localhost" => {"10104" => {group: 1, port: 4}}},
+    }))
+
+    switch = status[:switches]["localhost"]
+    switch["ip"].should eq(host)
+    switch["ports"].as_a.map { |port| port["ip"].as_s }.sort.should eq([host, "::1"].sort)
+    switch["ports"][0]["vlan"].should eq(42)
+    fixture.scopes.should contain("community@42")
+
+    results = exec(:reboot).get.as_a
+    results.size.should eq(1)
+    results.first["outcome"].should eq("rebooted")
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  ensure
+    fixture.dns_neighbors = false
+    fixture.catalyst = false
+    fixture.advertise_vlan = true
+    fixture.cisco_mapping = true
+  end
+
+  it "accepts hostnames in both individual reboot commands" do
+    fixture.writes.clear
+    fixture.dns_neighbors = true
+    settings(defaults)
+
+    result = exec(:reboot_port, switch_ip: "LOCALHOST", port: "Gi1/0/4").get
+    result["outcome"].should eq("rebooted")
+    result["switch_ip"].should eq(host)
+    result = exec(:reboot_device, device_ip: "LOCALHOST").get
+    result["outcome"].should eq("rebooted")
+    result["ips"].as_a.map(&.as_s).sort.should eq([host, "::1"].sort)
+    fixture.writes.map(&.last).should eq([2, 1, 2, 1])
+
+    fixture.writes.clear
+    fixture.dns_conflicting_neighbors = true
+    expect_raises(PlaceOS::Driver::RemoteException, /multiple MAC addresses/) do
+      exec(:reboot_device, "localhost").get
+    end
+    fixture.writes.should be_empty
+  ensure
+    fixture.dns_neighbors = false
+    fixture.dns_conflicting_neighbors = false
+  end
+
+  it "matches a dual-stack DNS alias to an IPv6 switch address" do
+    switch = PoeSwitchFixture.new("::1", fixture.port)
+    begin
+      switch.cisco_mapping = false
+      settings(defaults.merge({
+        switch_ips:        ["::1"],
+        poe_port_mappings: {"localhost" => {"10104" => {group: 1, port: 4}}},
+      }))
+
+      result = exec(:reboot_port, switch_ip: "localhost", port: "Gi1/0/4").get
+      result["outcome"].should eq("rebooted")
+      result["switch_ip"].should eq("::1")
+      switch.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+    ensure
+      switch.close
+    end
+  end
+
+  it "rejects conflicting switch settings that refer to the same IP" do
+    fixture.writes.clear
+    settings(defaults.merge({
+      poe_port_mappings: {
+        host        => {"10104" => {group: 1, port: 4}},
+        "localhost" => {"10104" => {group: 2, port: 4}},
+      },
+    }))
+    status[:switches][host]["error"].as_s.should contain("Conflicting switch settings")
+    exec(:reboot).get.as_a.should be_empty
+    fixture.writes.should be_empty
+  end
+
+  it "restores PoE to the journaled IP after the switch name moves" do
+    fixture.writes.clear
+    gateway.writes.clear
+    gateway.cisco_mapping = false
+    gateway.admin = 2
+    settings(defaults.merge({
+      switch_ips:        ["localhost"],
+      poe_port_mappings: {"localhost" => {"10104" => {group: 1, port: 4}}},
+    }))
+    status[:switches]["localhost"]["ip"].should eq(host)
+    status[:pending_restore] = {
+      switch_name: "localhost",
+      switch_ip:   "127.0.0.2",
+      if_index:    10104,
+      index:       {group: 1, port: 4},
+    }
+
+    exec(:query_state).get
+    fixture.writes.should be_empty
+    gateway.writes.should eq([{PoeSwitchFixture::ADMIN, 1}])
+    gateway.admin.should eq(1)
+    status[:pending_restore]?.should be_nil
+  ensure
+    gateway.cisco_mapping = true
+    gateway.admin = 1
+    status[:pending_restore] = nil
   end
 
   it "reports invalid reboot schedule settings" do
