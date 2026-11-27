@@ -24,11 +24,14 @@ private class PoeSwitchFixture
   property lose_disable_reply = false
   property reject_enable = false
   property fdb_present = true
+  property bridge_port_mapped = true
+  property bridge_if_index = 10104
   property read_neighbors = true
   property dns_neighbors = false
   property dns_conflicting_neighbors = false
   property legacy_arp = false
   property cisco_mapping = true
+  property stack_mapping = false
   property cisco_mode = 1
   property shared_fdb = false
 
@@ -164,17 +167,25 @@ private class PoeSwitchFixture
       if @cisco_mapping
         rows["1.3.6.1.4.1.9.9.402.1.2.1.11.1.4"] = SNMP::VarBind.from_value("1.3.6.1.4.1.9.9.402.1.2.1.11.1.4", 200)
         rows["1.3.6.1.4.1.9.9.402.1.2.1.1.1.4"] = SNMP::VarBind.from_value("1.3.6.1.4.1.9.9.402.1.2.1.1.1.4", @cisco_mode)
-        rows[ENTITY_OID] = SNMP::VarBind.from_value(ENTITY_OID, ASN1::BER.new.set_object_id("1.3.6.1.2.1.2.2.1.1.10104"))
+        if @stack_mapping
+          # The STACK-MIB row index differs from the POWER-ETHERNET-MIB index.
+          stack_entity = "1.3.6.1.4.1.9.5.1.4.1.1.25.2.8"
+          stack_if_index = "1.3.6.1.4.1.9.5.1.4.1.1.11.2.8"
+          rows[stack_entity] = SNMP::VarBind.from_value(stack_entity, 200)
+          rows[stack_if_index] = SNMP::VarBind.from_value(stack_if_index, 10104)
+        else
+          rows[ENTITY_OID] = SNMP::VarBind.from_value(ENTITY_OID, ASN1::BER.new.set_object_id("1.3.6.1.2.1.2.2.1.1.10104"))
+        end
       end
       if @catalyst
         vid_oid = "1.3.6.1.4.1.9.9.46.1.3.1.1.2.1.42"
         rows[vid_oid] = SNMP::VarBind.from_value(vid_oid, 1) if @advertise_vlan
       else
         vlan_oid = "1.3.6.1.2.1.17.7.1.4.2.1.3.0.42"
-        rows[vlan_oid] = SNMP::VarBind.from_value(vlan_oid, 17)
+        rows[vlan_oid] = SNMP::VarBind.from_value(vlan_oid, SNMP::Gauge32.new(17_u32))
         if @shared_fdb
           other_vid = "1.3.6.1.2.1.17.7.1.4.2.1.3.0.43"
-          rows[other_vid] = SNMP::VarBind.from_value(other_vid, 17)
+          rows[other_vid] = SNMP::VarBind.from_value(other_vid, SNMP::Gauge32.new(17_u32))
         end
         add_fdb(rows, "1.3.6.1.2.1.17.7.1.2.2.1", "17.", 7) if @fdb_present
       end
@@ -185,8 +196,9 @@ private class PoeSwitchFixture
   end
 
   private def add_fdb(rows, table, index_prefix, port)
-    bridge_oid = "1.3.6.1.2.1.17.1.4.1.2.#{port}"
-    rows[bridge_oid] = SNMP::VarBind.from_value(bridge_oid, 10104)
+    mapped_port = @bridge_port_mapped ? port : port + 1
+    bridge_oid = "1.3.6.1.2.1.17.1.4.1.2.#{mapped_port}"
+    rows[bridge_oid] = SNMP::VarBind.from_value(bridge_oid, @bridge_if_index)
     indices = [MAC_INDEX]
     indices << "0.17.34.51.68.86" if @shared
     indices.each do |mac|
@@ -268,6 +280,93 @@ DriverSpecs.mock_driver "Networking::PoeReboot" do
     fixture.catalyst = false
   end
 
+  it "uses the standard VLAN forwarding table with an explicit VLAN" do
+    fixture.writes.clear
+    settings(defaults.merge({switch_vlans: {host => [42]}}))
+    result = exec(:reboot_device, target).get
+    result["outcome"].should eq("rebooted")
+    status[:switches][host]["ports"][0]["vlan"].should eq(42)
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  end
+
+  it "does not assign a shared filtering database to a configured VLAN" do
+    fixture.writes.clear
+    fixture.shared_fdb = true
+    settings(defaults.merge({switch_vlans: {host => [43]}}))
+    exec(:reboot).get.as_a.should be_empty
+    fixture.writes.should be_empty
+  ensure
+    fixture.shared_fdb = false
+  end
+
+  it "joins Cisco STACK-MIB rows by ENTITY index when ENTITY aliases are absent" do
+    fixture.writes.clear
+    fixture.stack_mapping = true
+    settings(defaults)
+    result = exec(:reboot_device, target).get
+    result["outcome"].should eq("rebooted")
+    status[:switches][host]["ports"][0]["if_index"].should eq(10104)
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  ensure
+    fixture.stack_mapping = false
+  end
+
+  it "reports a learned VLAN port that lacks a verified PoE mapping" do
+    fixture.writes.clear
+    fixture.catalyst = true
+    fixture.cisco_mapping = false
+    settings(defaults.merge({switch_vlans: {host => [42]}}))
+
+    reason = status[:unresolved_devices][target].as_s
+    reason.should contain("00:11:22:33:44:55")
+    reason.should contain("Gi1/0/4")
+    reason.should contain("ifIndex 10104")
+    reason.should contain("VLAN 42")
+    reason.should contain("no verified PoE mapping")
+    exec(:reboot).get.as_a.should be_empty
+    fixture.writes.should be_empty
+
+    settings(defaults.merge({
+      switch_vlans:      {host => [42]},
+      poe_port_mappings: {host => {"10104" => {group: 1, port: 4}}},
+    }))
+    status[:switches][host]["ports"][0]["poe_port"].should eq(4)
+  ensure
+    fixture.catalyst = false
+    fixture.cisco_mapping = true
+  end
+
+  it "reports a VLAN forwarding entry with no bridge-to-interface mapping" do
+    fixture.writes.clear
+    fixture.catalyst = true
+    fixture.bridge_port_mapped = false
+    settings(defaults.merge({switch_vlans: {host => [42]}}))
+
+    reason = status[:unresolved_devices][target].as_s
+    reason.should contain("bridge port 14")
+    reason.should contain("VLAN 42")
+    reason.should contain("ifIndex")
+    exec(:reboot).get.as_a.should be_empty
+    fixture.writes.should be_empty
+  ensure
+    fixture.catalyst = false
+    fixture.bridge_port_mapped = true
+  end
+
+  it "rejects an explicit mapping that claims another interface's Cisco PoE port" do
+    fixture.writes.clear
+    fixture.bridge_if_index = 10105
+    settings(defaults.merge({
+      poe_port_mappings: {host => {"10104" => {group: 1, port: 5}, "10105" => {group: 1, port: 4}}},
+    }))
+
+    status[:unresolved_devices][target].as_s.should contain("ifIndex 10105")
+    exec(:reboot).get.as_a.should be_empty
+    fixture.writes.should be_empty
+  ensure
+    fixture.bridge_if_index = 10104
+  end
+
   it "supports an explicit non-Cisco mapping and leaves a shared FDB VLAN unknown" do
     fixture.cisco_mapping = false
     fixture.shared_fdb = true
@@ -314,7 +413,7 @@ DriverSpecs.mock_driver "Networking::PoeReboot" do
     settings(defaults)
     fixture.fdb_present = false
     exec(:reboot).get.as_a.should be_empty
-    status[:unresolved_devices][target].should eq("No verified PoE port learned this MAC")
+    status[:unresolved_devices][target].should eq("No learned forwarding entry for MAC 00:11:22:33:44:55")
     fixture.fdb_present = true
 
     settings(defaults.merge({switch_ips: [host, "127.0.0.3"], neighbor_ips: [host]}))
@@ -375,7 +474,7 @@ DriverSpecs.mock_driver "Networking::PoeReboot" do
     fixture.writes.clear
     settings(defaults)
     fixture.fdb_present = false
-    expect_raises(PlaceOS::Driver::RemoteException, /No verified PoE port/) do
+    expect_raises(PlaceOS::Driver::RemoteException, /No learned forwarding entry/) do
       exec(:reboot_device, target).get
     end
     fixture.fdb_present = true

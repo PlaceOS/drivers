@@ -9,6 +9,7 @@ module Networking
   # POWER-ETHERNET-MIB: https://www.rfc-editor.org/rfc/rfc3621.html
   # Catalyst VLAN contexts: https://www.cisco.com/c/en/us/support/docs/ip/simple-network-management-protocol-snmp/44800-mactoport44800.html
   # Cisco PoE mapping: https://github.com/cisco/cisco-mibs/blob/main/v2/CISCO-POWER-ETHERNET-EXT-MIB.my
+  # Cisco physical port cross-reference: https://github.com/cisco/cisco-mibs/blob/main/v2/CISCO-STACK-MIB.my
   # Cisco VLAN state: https://github.com/cisco/cisco-mibs/blob/main/v2/CISCO-VTP-MIB.my
   module PoeRebootSnmp
     NEIGHBOR_MAC    = "1.3.6.1.2.1.4.35.1.4"
@@ -26,6 +27,8 @@ module Networking
     PSE_DETECTION   = "1.3.6.1.2.1.105.1.1.1.6"
     CISCO_PSE_MODE  = "1.3.6.1.4.1.9.9.402.1.2.1.1"
     CISCO_PSE_ENT   = "1.3.6.1.4.1.9.9.402.1.2.1.11"
+    CISCO_STACK_ENT = "1.3.6.1.4.1.9.5.1.4.1.1.25"
+    CISCO_STACK_IF  = "1.3.6.1.4.1.9.5.1.4.1.1.11"
     CISCO_VLAN      = "1.3.6.1.4.1.9.9.46.1.3.1.1.2"
     CISCO_VLAN_TYPE = "1.3.6.1.4.1.9.9.46.1.3.1.1.3"
     CISCO_TRUNK     = "1.3.6.1.4.1.9.9.46.1.6.1.1.14"
@@ -203,7 +206,17 @@ module Networking
     record FdbLocation, if_index : Int32, bridge_port : Int32, port_oid : String, status_oid : String,
       context_vlan : Int32?, vlan : Int32?
 
-    record FdbResult, locations : Hash(String, Array(FdbLocation)), shared : Set(Int32)
+    record FdbResult, locations : Hash(String, Array(FdbLocation)) = Hash(String, Array(FdbLocation)).new,
+      shared : Set(Int32) = Set(Int32).new,
+      issues : Hash(String, Set(String)) = Hash(String, Set(String)).new do
+      def add_issue(mac : String, vlan : Int32?, issue : String)
+        scope = vlan ? "VLAN #{vlan} forwarding entry" : "Forwarding entry"
+        (issues[mac] ||= Set(String).new) << "#{scope} #{issue}"
+      end
+    end
+
+    private class MissingBridgeMapping < SNMP::Error
+    end
 
     def self.neighbors(agent : Agent, targets : Set(String), result : Hash(String, Set(String)))
       modern = Set(String).new
@@ -252,20 +265,48 @@ module Networking
 
       indices = Hash(Int32, Set(PoeIndex)).new
       unless entities.empty?
+        aliased = Set(Int32).new
         agent.column(ENTITY_ALIAS) do |index, binding|
-          rows = entities[index.partition('.').first.to_i]?
+          entity = index.partition('.').first.to_i
+          rows = entities[entity]?
           next unless rows
           oid = agent.object_id(binding)
           next unless oid && oid.starts_with?("#{IF_INDEX}.")
           if_index = oid.byte_slice(IF_INDEX.bytesize + 1).to_i?
           next unless if_index && if_index > 0
           (indices[if_index] ||= Set(PoeIndex).new).concat(rows)
+          aliased << entity
+        end
+
+        # Both STACK-MIB columns describe the same port row. Match through
+        # entPhysicalIndex because STACK and PoE row indices may differ.
+        if aliased.size < entities.size
+          agent.column(CISCO_STACK_ENT) do |index, binding|
+            entity = agent.integer(binding)
+            next unless entity && !aliased.includes?(entity)
+            rows = entities[entity]?
+            next unless rows
+            if_index = agent.integer(agent.read("#{CISCO_STACK_IF}.#{index}").first)
+            next unless if_index && if_index > 0
+            (indices[if_index] ||= Set(PoeIndex).new).concat(rows)
+          end
         end
       end
-      mapped = configured.dup
+
+      owners = Hash(PoeIndex, Set(Int32)).new
+      indices.each do |if_index, rows|
+        rows.each { |row| (owners[row] ||= Set(Int32).new) << if_index }
+      end
+      mapped = configured.reject do |if_index, row|
+        if interfaces = owners[row]?
+          interfaces.size != 1 || !interfaces.includes?(if_index)
+        else
+          false
+        end
+      end
       indices.each do |index, rows|
         # A configured mapping must agree with a Cisco mapping if present.
-        if rows.size != 1 || (mapped.has_key?(index) && !rows.includes?(mapped[index]))
+        if rows.size != 1 || owners[rows.first].size != 1 || (configured.has_key?(index) && !rows.includes?(configured[index]))
           mapped.delete(index)
         else
           mapped[index] = rows.first
@@ -276,17 +317,11 @@ module Networking
     end
 
     def self.forwarding(agent : Agent, vlans : Array(Int32)?, targets : Set(String)) : FdbResult
-      result = FdbResult.new(Hash(String, Array(FdbLocation)).new, Set(Int32).new)
+      result = FdbResult.new
       first_mac = Hash(Int32, String).new
+      missing_q_bridge = nil
       if vlans.nil?
-        # FDB IDs are allocated by the bridge. Several VLANs may share an ID.
-        vlan_ids = Hash(UInt32, Set(Int32)).new
-        agent.column(VLAN_FDB_ID) do |index, binding|
-          vlan = index.rpartition('.').last.to_i
-          next unless (1..4094).includes?(vlan)
-          (vlan_ids[binding.get_unsigned32] ||= Set(Int32).new) << vlan
-        end
-        if read_fdb(agent, VLAN_FDB, nil, vlan_ids, targets, first_mac, result)
+        if read_fdb(agent, VLAN_FDB, nil, vlan_fdb_ids(agent), targets, first_mac, result)
           return result
         end
 
@@ -304,6 +339,18 @@ module Networking
           vlans.reject! { |vlan| non_ethernet.includes?(vlan) }
           vlans.uniq!
         end
+      elsif !vlans.empty?
+        vlan_ids = vlan_fdb_ids(agent)
+        if vlans.all? { |vlan| exclusive_fdb?(vlan_ids, vlan) }
+          standard = FdbResult.new
+          begin
+            read_fdb(agent, VLAN_FDB, nil, vlan_ids, targets, Hash(Int32, String).new, standard, vlans)
+            return standard unless standard.locations.empty?
+          rescue error : MissingBridgeMapping
+            missing_q_bridge = error
+          end
+          result.issues.merge!(standard.issues)
+        end
       end
 
       if vlans.empty?
@@ -315,39 +362,71 @@ module Networking
           end
         end
       end
+      raise missing_q_bridge if missing_q_bridge && result.locations.empty?
       result
     end
 
+    private def self.vlan_fdb_ids(agent : Agent) : Hash(UInt32, Set(Int32))
+      # FDB IDs are allocated by the bridge. Several VLANs may share an ID.
+      vlan_ids = Hash(UInt32, Set(Int32)).new
+      agent.column(VLAN_FDB_ID) do |index, binding|
+        vlan = index.rpartition('.').last.to_i
+        next unless (1..4094).includes?(vlan)
+        (vlan_ids[binding.get_unsigned32] ||= Set(Int32).new) << vlan
+      end
+      vlan_ids
+    end
+
+    private def self.exclusive_fdb?(vlan_ids : Hash(UInt32, Set(Int32)), vlan : Int32) : Bool
+      memberships = vlan_ids.values.select(&.includes?(vlan))
+      memberships.size == 1 && memberships.first.size == 1
+    end
+
     private def self.read_fdb(agent : Agent, table : String, context_vlan : Int32?, vlan_ids : Hash(UInt32, Set(Int32))?,
-                              targets : Set(String), first_mac : Hash(Int32, String), result : FdbResult) : Bool
+                              targets : Set(String), first_mac : Hash(Int32, String), result : FdbResult,
+                              allowed_vlans : Array(Int32)? = nil) : Bool
       ports = Hash(Int32, Int32).new
       seen = false
       agent.column("#{table}.2") do |index, binding|
         seen = true
-        bridge_port = agent.integer(binding)
-        next unless bridge_port && bridge_port > 0
         arcs = index.split('.')
         next unless arcs.size == (vlan_ids ? 7 : 6)
         address = mac(Bytes.new(6) { |i| arcs[i + (vlan_ids ? 1 : 0)].to_u8 })
         next unless address
+
+        vlans = vlan_ids.try(&.[arcs.first.to_u32]?)
+        vlan = context_vlan || (vlans.first if vlans && vlans.size == 1)
+        target = targets.includes?(address) && (!allowed_vlans || (vlan && allowed_vlans.includes?(vlan)))
+        bridge_port = agent.integer(binding)
+        unless bridge_port && bridge_port > 0
+          result.add_issue(address, vlan, "has no usable bridge port") if target
+          next
+        end
 
         if ports.empty?
           agent.column(BRIDGE_IFINDEX) do |key, port_binding|
             if_index = agent.integer(port_binding)
             ports[key.to_i] = if_index if if_index && if_index > 0
           end
-          raise SNMP::Error.new("bridge port to interface mapping is unavailable") if ports.empty?
+          if ports.empty?
+            scope = " in VLAN #{vlan}" if vlan
+            raise MissingBridgeMapping.new("bridge port to interface mapping is unavailable#{scope}")
+          end
         end
         if_index = ports[bridge_port]?
-        next unless if_index
+        unless if_index
+          result.add_issue(address, vlan, "has no ifIndex mapping for bridge port #{bridge_port}") if target
+          next
+        end
         previous = first_mac[if_index] ||= address
         result.shared << if_index if previous != address
-        next unless targets.includes?(address)
+        next unless target
         status_oid = "#{table}.3.#{index}"
-        next unless agent.integer(agent.read(status_oid).first) == LEARNED
+        unless agent.integer(agent.read(status_oid).first) == LEARNED
+          result.add_issue(address, vlan, "on ifIndex #{if_index} is not learned")
+          next
+        end
 
-        vlans = vlan_ids.try(&.[arcs.first.to_u32]?)
-        vlan = context_vlan || (vlans.first if vlans && vlans.size == 1)
         (result.locations[address] ||= [] of FdbLocation) << FdbLocation.new(
           if_index, bridge_port, binding.oid, status_oid, context_vlan, vlan)
       end

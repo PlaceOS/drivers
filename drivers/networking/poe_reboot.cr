@@ -20,8 +20,8 @@ class Networking::PoeReboot < PlaceOS::Driver
     # On Catalyst, allow BRIDGE-MIB reads in the VLAN contexts. The only write
     # access the driver needs is POWER-ETHERNET-MIB::pethPsePortAdminEnable.
     # snmp.port and snmp.timeout (seconds) default to 161 and 3.
-    # Optional Catalyst VLAN IDs per switch, e.g. {"192.0.2.1": [10, 20]}.
-    # When omitted, use Q-BRIDGE-MIB or discover Catalyst VLANs via CISCO-VTP-MIB.
+    # Optional VLAN IDs per switch, e.g. {"192.0.2.1": [10, 20]}.
+    # Use Q-BRIDGE-MIB or the Catalyst VLAN contexts to find their ports.
     switch_vlans: {} of String => Array(Int32),
     # Optional verified ifIndex -> PoE group/port per switch, e.g.
     # {"192.0.2.1": {"10104": {"group": 1, "port": 4}}}.
@@ -351,16 +351,24 @@ class Networking::PoeReboot < PlaceOS::Driver
         matched_ips = ips.select { |ip| neighbors.has_key?(ip) }
         (targets[macs.first] ||= Set(String).new).concat(matched_ips)
         matched_addresses[name] = matched_ips
-        unresolved[name] = "No verified PoE port learned this MAC"
+        unresolved[name] = "No learned forwarding entry for MAC #{format_mac(macs.first)}"
       end
     end
 
     matches = [] of Match
+    forwarding_issues = Hash(String, Set(String)).new
     unless targets.empty?
       macs = targets.keys.to_set
       switch_addresses.to_a.uniq(&.last).each do |name, ip|
         switch = SwitchEndpoint.new(name, ip)
-        matches.concat(with_agent(options, ip) { |agent| switch_matches(options, resolution, switch, agent, targets, macs) })
+        found, issues = with_agent(options, ip) { |agent| switch_matches(options, resolution, switch, agent, targets, macs) }
+        matches.concat(found)
+        issues.each do |mac, reasons|
+          targets[mac].each do |target_ip|
+            entries = forwarding_issues[target_ip] ||= Set(String).new
+            reasons.each { |reason| entries << "#{name}: #{reason}" }
+          end
+        end
       rescue error
         switch_errors[ip] = error.message || error.class.name
       end
@@ -371,7 +379,11 @@ class Networking::PoeReboot < PlaceOS::Driver
     by_device = matches.group_by(&.state.ip)
     matched_addresses.each do |name, ips|
       candidates = ips.flat_map { |ip| by_device[ip]? || [] of Match }
-      next if candidates.empty?
+      if candidates.empty?
+        reasons = ips.flat_map { |ip| forwarding_issues[ip]?.try(&.to_a) || [] of String }
+        unresolved[name] = reasons.uniq.join("; ") unless reasons.empty?
+        next
+      end
 
       usable = candidates.select { |match| match.state.skip_reason.nil? }
       case usable.uniq { |match| {match.switch.ip, match.index} }.size
@@ -410,32 +422,44 @@ class Networking::PoeReboot < PlaceOS::Driver
                              agent : PoeRebootSnmp::Agent, targets : Hash(String, Set(String)), macs : Set(String))
     vlans = switch_setting(options.vlans, resolution, switch)
     fdb = PoeRebootSnmp.forwarding(agent, vlans.try(&.uniq), macs)
-    return [] of Match if fdb.locations.empty?
+    return {[] of Match, fdb.issues} if fdb.locations.empty?
 
     mapping = PoeRebootSnmp.poe_ports(agent, configured_mapping(options, resolution, switch))
     matches = [] of Match
     fdb.locations.each do |mac, locations|
+      mac_address = format_mac(mac)
       locations.group_by(&.if_index).each do |if_index, rows|
+        port_vlans = rows.map(&.vlan).uniq
+        vlan = port_vlans.size == 1 ? port_vlans.first : nil
+        name_oid = "#{PoeRebootSnmp::IF_NAME}.#{if_index}"
         index = mapping[if_index]?
-        next unless index
+        unless index
+          interface = agent.octets(agent.read(name_oid).first).try { |bytes| String.new(bytes).presence }
+          port = interface ? "#{interface} (ifIndex #{if_index})" : "ifIndex #{if_index}"
+          fdb.add_issue(mac, vlan, "for MAC #{mac_address} identifies #{port}, which has no verified PoE mapping")
+          next
+        end
         name, admin, detection, mode, trunk = agent.read(
-          "#{PoeRebootSnmp::IF_NAME}.#{if_index}", "#{PoeRebootSnmp::PSE_ADMIN}.#{index}",
+          name_oid, "#{PoeRebootSnmp::PSE_ADMIN}.#{index}",
           "#{PoeRebootSnmp::PSE_DETECTION}.#{index}", "#{PoeRebootSnmp::CISCO_PSE_MODE}.#{index}",
           "#{PoeRebootSnmp::CISCO_TRUNK}.#{if_index}")
         enabled = agent.integer(admin).try { |value| value == PoeRebootSnmp::ENABLED }
         delivering = agent.integer(detection).try { |value| value == PoeRebootSnmp::DELIVERING }
         reason = port_issue(enabled, delivering, agent.integer(mode), agent.integer(trunk))
         reason ||= "Multiple MAC addresses learned on this interface" if fdb.shared.includes?(if_index)
-        vlans = rows.map(&.vlan).uniq
         targets[mac].each do |ip|
-          state = PortState.new(ip, mac.scan(/../).join(':', &.[0]), vlans.size == 1 ? vlans.first : nil,
+          state = PortState.new(ip, mac_address, vlan,
             if_index, agent.octets(name).try { |bytes| String.new(bytes).presence }, index.group, index.port,
             enabled, delivering, reason)
           matches << Match.new(switch, index, rows.first, state)
         end
       end
     end
-    matches
+    {matches, fdb.issues}
+  end
+
+  private def format_mac(mac : String) : String
+    mac.scan(/../).join(':', &.[0])
   end
 
   private def port_issue(enabled, delivering, mode, trunk) : String?
