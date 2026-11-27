@@ -17,8 +17,9 @@ class Networking::PoeReboot < PlaceOS::Driver
     neighbor_ips: [] of String,
     snmp:         {version: "v2c", community: ""},
     # For v3, use username, auth_protocol/auth_password and priv_protocol/priv_password.
-    # On Catalyst, allow BRIDGE-MIB reads in the VLAN contexts. The only write
-    # access the driver needs is POWER-ETHERNET-MIB::pethPsePortAdminEnable.
+    # On Catalyst, allow BRIDGE-MIB reads in the VLAN contexts. For DHCP
+    # corroboration, allow CISCO-DHCP-SNOOPING-MIB reads in the default context.
+    # The only write access needed is POWER-ETHERNET-MIB::pethPsePortAdminEnable.
     # snmp.port and snmp.timeout (seconds) default to 161 and 3.
     # Optional VLAN IDs per switch, e.g. {"192.0.2.1": [10, 20]}.
     # Use Q-BRIDGE-MIB or the Catalyst VLAN contexts to find their ports.
@@ -94,7 +95,7 @@ class Networking::PoeReboot < PlaceOS::Driver
 
   record PortState, ip : String, mac : String, vlan : Int32?, if_index : Int32, interface_name : String?,
     poe_group : Int32, poe_port : Int32, poe_admin_enabled : Bool?, delivering_power : Bool?,
-    skip_reason : String? do
+    skip_reason : String?, verification : String? = nil do
     include JSON::Serializable
   end
 
@@ -358,10 +359,9 @@ class Networking::PoeReboot < PlaceOS::Driver
     matches = [] of Match
     forwarding_issues = Hash(String, Set(String)).new
     unless targets.empty?
-      macs = targets.keys.to_set
       switch_addresses.to_a.uniq(&.last).each do |name, ip|
         switch = SwitchEndpoint.new(name, ip)
-        found, issues = with_agent(options, ip) { |agent| switch_matches(options, resolution, switch, agent, targets, macs) }
+        found, issues = with_agent(options, ip) { |agent| switch_matches(options, resolution, switch, agent, targets) }
         matches.concat(found)
         issues.each do |mac, reasons|
           targets[mac].each do |target_ip|
@@ -419,9 +419,9 @@ class Networking::PoeReboot < PlaceOS::Driver
   end
 
   private def switch_matches(options : Options, resolution : AddressResolution, switch : SwitchEndpoint,
-                             agent : PoeRebootSnmp::Agent, targets : Hash(String, Set(String)), macs : Set(String))
+                             agent : PoeRebootSnmp::Agent, targets : Hash(String, Set(String)))
     vlans = switch_setting(options.vlans, resolution, switch)
-    fdb = PoeRebootSnmp.forwarding(agent, vlans.try(&.uniq), macs)
+    fdb = PoeRebootSnmp.forwarding(agent, vlans.try(&.uniq), targets)
     return {[] of Match, fdb.issues} if fdb.locations.empty?
 
     mapping = PoeRebootSnmp.poe_ports(agent, configured_mapping(options, resolution, switch))
@@ -448,10 +448,14 @@ class Networking::PoeReboot < PlaceOS::Driver
         reason = port_issue(enabled, delivering, agent.integer(mode), agent.integer(trunk))
         reason ||= "Multiple MAC addresses learned on this interface" if fdb.shared.includes?(if_index)
         targets[mac].each do |ip|
-          state = PortState.new(ip, mac_address, vlan,
+          ip_rows = rows.select { |row| !(binding = row.dhcp_binding) || binding.ip == ip }
+          location = ip_rows.find { |row| row.dhcp_binding.nil? } || ip_rows.first?
+          next unless location
+          ip_vlans = ip_rows.map(&.vlan).uniq
+          state = PortState.new(ip, mac_address, (ip_vlans.first if ip_vlans.size == 1),
             if_index, agent.octets(name).try { |bytes| String.new(bytes).presence }, index.group, index.port,
-            enabled, delivering, reason)
-          matches << Match.new(switch, index, rows.first, state)
+            enabled, delivering, reason, ("dhcp_snooping" if location.dhcp_binding))
+          matches << Match.new(switch, index, location, state)
         end
       end
     end
@@ -471,7 +475,7 @@ class Networking::PoeReboot < PlaceOS::Driver
   end
 
   private def cycle_matches(options : Options, resolution : AddressResolution, matches : Array(Match)) : RebootResult
-    match = matches.first
+    match = matches.find { |candidate| candidate.location.dhcp_binding.nil? } || matches.first
     cycle(options, resolution, match.switch, match.index, matches.map(&.state.ip), match.location)
   end
 
@@ -483,9 +487,10 @@ class Networking::PoeReboot < PlaceOS::Driver
         agent.in_vlan(location.context_vlan) do |scoped|
           port, status, interface = scoped.read(location.port_oid, location.status_oid,
             "#{PoeRebootSnmp::BRIDGE_IFINDEX}.#{location.bridge_port}")
-          unless scoped.integer(port) == location.bridge_port && scoped.integer(status) == PoeRebootSnmp::LEARNED &&
-                 scoped.integer(interface) == location.if_index
-            raise "learned MAC location changed before reboot"
+          verified_status = scoped.integer(status) == PoeRebootSnmp::FdbStatus::Learned.value ||
+                            (location.dhcp_binding && PoeRebootSnmp.dhcp_corroboration_allowed?(scoped, status))
+          unless scoped.integer(port) == location.bridge_port && verified_status && scoped.integer(interface) == location.if_index
+            raise "MAC forwarding location changed before reboot"
           end
         end
       end
@@ -502,6 +507,11 @@ class Networking::PoeReboot < PlaceOS::Driver
       if reason = port_issue(agent.integer(admin) == PoeRebootSnmp::ENABLED,
            agent.integer(detection) == PoeRebootSnmp::DELIVERING, agent.integer(mode), trunk)
         raise reason
+      end
+      if location && (binding = location.dhcp_binding)
+        unless PoeRebootSnmp.dhcp_binding_ip(agent, binding.index, location.if_index) == binding.ip
+          raise "DHCP snooping binding changed before reboot"
+        end
       end
       raise "settings changed before reboot" unless @options == options
 

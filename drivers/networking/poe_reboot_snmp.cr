@@ -11,6 +11,7 @@ module Networking
   # Cisco PoE mapping: https://github.com/cisco/cisco-mibs/blob/main/v2/CISCO-POWER-ETHERNET-EXT-MIB.my
   # Cisco physical port cross-reference: https://github.com/cisco/cisco-mibs/blob/main/v2/CISCO-STACK-MIB.my
   # Cisco VLAN state: https://github.com/cisco/cisco-mibs/blob/main/v2/CISCO-VTP-MIB.my
+  # Cisco dynamic DHCP bindings: https://github.com/cisco/cisco-mibs/blob/main/v2/CISCO-DHCP-SNOOPING-MIB.my
   module PoeRebootSnmp
     NEIGHBOR_MAC    = "1.3.6.1.2.1.4.35.1.4"
     NEIGHBOR_TYPE   = "1.3.6.1.2.1.4.35.1.6"
@@ -32,11 +33,19 @@ module Networking
     CISCO_VLAN      = "1.3.6.1.4.1.9.9.46.1.3.1.1.2"
     CISCO_VLAN_TYPE = "1.3.6.1.4.1.9.9.46.1.3.1.1.3"
     CISCO_TRUNK     = "1.3.6.1.4.1.9.9.46.1.6.1.1.14"
+    DHCP_BINDINGS   = "1.3.6.1.4.1.9.9.380.1.4.1.1"
 
     ENABLED    = 1
     DISABLED   = 2
     DELIVERING = 3
-    LEARNED    = 3
+
+    enum FdbStatus
+      Other      = 1
+      Invalid    = 2
+      Learned    = 3
+      Self       = 4
+      Management = 5
+    end
 
     class Credentials
       include JSON::Serializable
@@ -127,11 +136,12 @@ module Networking
             agent.close
           end
         else
+          previous_context = @context
           begin
             @context = vlan ? "vlan-#{vlan}" : ""
             yield self
           ensure
-            @context = ""
+            @context = previous_context
           end
         end
       end
@@ -203,8 +213,10 @@ module Networking
       end
     end
 
+    record DhcpBinding, index : String, ip : String
+
     record FdbLocation, if_index : Int32, bridge_port : Int32, port_oid : String, status_oid : String,
-      context_vlan : Int32?, vlan : Int32?
+      context_vlan : Int32?, vlan : Int32?, dhcp_binding : DhcpBinding?
 
     record FdbResult, locations : Hash(String, Array(FdbLocation)) = Hash(String, Array(FdbLocation)).new,
       shared : Set(Int32) = Set(Int32).new,
@@ -316,12 +328,12 @@ module Networking
       mapped.reject { |_, index| counts[index] != 1 }
     end
 
-    def self.forwarding(agent : Agent, vlans : Array(Int32)?, targets : Set(String)) : FdbResult
+    def self.forwarding(agent : Agent, vlans : Array(Int32)?, targets : Hash(String, Set(String))) : FdbResult
       result = FdbResult.new
       first_mac = Hash(Int32, String).new
       missing_q_bridge = nil
       if vlans.nil?
-        if read_fdb(agent, VLAN_FDB, nil, vlan_fdb_ids(agent), targets, first_mac, result)
+        if read_fdb(agent, agent, VLAN_FDB, nil, vlan_fdb_ids(agent), targets, first_mac, result)
           return result
         end
 
@@ -344,7 +356,7 @@ module Networking
         if vlans.all? { |vlan| exclusive_fdb?(vlan_ids, vlan) }
           standard = FdbResult.new
           begin
-            read_fdb(agent, VLAN_FDB, nil, vlan_ids, targets, Hash(Int32, String).new, standard, vlans)
+            read_fdb(agent, agent, VLAN_FDB, nil, vlan_ids, targets, Hash(Int32, String).new, standard, vlans)
             return standard unless standard.locations.empty?
           rescue error : MissingBridgeMapping
             missing_q_bridge = error
@@ -354,11 +366,11 @@ module Networking
       end
 
       if vlans.empty?
-        read_fdb(agent, BRIDGE_FDB, nil, nil, targets, first_mac, result)
+        read_fdb(agent, agent, BRIDGE_FDB, nil, nil, targets, first_mac, result)
       else
         vlans.each do |vlan|
           agent.in_vlan(vlan) do |scoped|
-            read_fdb(scoped, BRIDGE_FDB, vlan, nil, targets, first_mac, result)
+            read_fdb(scoped, agent, BRIDGE_FDB, vlan, nil, targets, first_mac, result)
           end
         end
       end
@@ -382,8 +394,8 @@ module Networking
       memberships.size == 1 && memberships.first.size == 1
     end
 
-    private def self.read_fdb(agent : Agent, table : String, context_vlan : Int32?, vlan_ids : Hash(UInt32, Set(Int32))?,
-                              targets : Set(String), first_mac : Hash(Int32, String), result : FdbResult,
+    private def self.read_fdb(agent : Agent, default_agent : Agent, table : String, context_vlan : Int32?, vlan_ids : Hash(UInt32, Set(Int32))?,
+                              targets : Hash(String, Set(String)), first_mac : Hash(Int32, String), result : FdbResult,
                               allowed_vlans : Array(Int32)? = nil) : Bool
       ports = Hash(Int32, Int32).new
       seen = false
@@ -396,10 +408,10 @@ module Networking
 
         vlans = vlan_ids.try(&.[arcs.first.to_u32]?)
         vlan = context_vlan || (vlans.first if vlans && vlans.size == 1)
-        target = targets.includes?(address) && (!allowed_vlans || (vlan && allowed_vlans.includes?(vlan)))
+        target_ips = (!allowed_vlans || (vlan && allowed_vlans.includes?(vlan))) ? targets[address]? : nil
         bridge_port = agent.integer(binding)
         unless bridge_port && bridge_port > 0
-          result.add_issue(address, vlan, "has no usable bridge port") if target
+          result.add_issue(address, vlan, "has no usable bridge port") if target_ips
           next
         end
 
@@ -415,22 +427,53 @@ module Networking
         end
         if_index = ports[bridge_port]?
         unless if_index
-          result.add_issue(address, vlan, "has no ifIndex mapping for bridge port #{bridge_port}") if target
+          result.add_issue(address, vlan, "has no ifIndex mapping for bridge port #{bridge_port}") if target_ips
           next
         end
         previous = first_mac[if_index] ||= address
         result.shared << if_index if previous != address
-        next unless target
+        next unless target_ips
         status_oid = "#{table}.3.#{index}"
-        unless agent.integer(agent.read(status_oid).first) == LEARNED
-          result.add_issue(address, vlan, "on ifIndex #{if_index} is not learned")
-          next
+        status = agent.read(status_oid).first
+        status_value = agent.integer(status)
+        dhcp_binding = nil
+        unless status_value == FdbStatus::Learned.value
+          if vlan && dhcp_corroboration_allowed?(agent, status)
+            # MacAddress is fixed-width in this table index.
+            binding_index = "#{vlan}.#{address.hexbytes.join('.')}"
+            ip = default_agent.in_vlan(nil) { |unscoped| dhcp_binding_ip(unscoped, binding_index, if_index) }
+            dhcp_binding = DhcpBinding.new(binding_index, ip) if ip && target_ips.includes?(ip)
+          end
+          unless dhcp_binding
+            reason = "on ifIndex #{if_index} has forwarding status #{status_value || "unavailable"}"
+            reason += " and no matching active DHCP snooping binding" if vlan && dhcp_corroboration_allowed?(agent, status)
+            result.add_issue(address, vlan, reason)
+            next
+          end
         end
 
         (result.locations[address] ||= [] of FdbLocation) << FdbLocation.new(
-          if_index, bridge_port, binding.oid, status_oid, context_vlan, vlan)
+          if_index, bridge_port, binding.oid, status_oid, context_vlan, vlan, dhcp_binding)
       end
       seen
+    end
+
+    def self.dhcp_corroboration_allowed?(agent : Agent, status : SNMP::VarBind) : Bool
+      value = agent.integer(status)
+      status.no_such_instance? || status.no_such_object? ||
+        value == FdbStatus::Other.value || value == FdbStatus::Management.value
+    end
+
+    def self.dhcp_binding_ip(agent : Agent, index : String, if_index : Int32) : String?
+      address_type, address, interface, lease, status = agent.read(
+        "#{DHCP_BINDINGS}.3.#{index}", "#{DHCP_BINDINGS}.4.#{index}", "#{DHCP_BINDINGS}.5.#{index}",
+        "#{DHCP_BINDINGS}.6.#{index}", "#{DHCP_BINDINGS}.7.#{index}")
+      return unless agent.integer(status) == 1 && agent.integer(interface) == if_index
+      return unless lease.tag_class.application? && lease.tag_number == SNMP::AppTags::Gauge32.value && lease.get_unsigned32 > 0
+      return unless agent.integer(address_type) == 1
+      if (bytes = agent.octets(address)) && bytes.size == 4
+        bytes.join('.')
+      end
     end
 
     private def self.mac(bytes : Bytes) : String?

@@ -5,6 +5,7 @@ require "snmp"
 private class PoeSwitchFixture
   ADMIN       = "1.3.6.1.2.1.105.1.1.1.3.1.4"
   ENTITY_OID  = "1.3.6.1.2.1.47.1.3.2.1.2.200.0"
+  DHCP_ENTRY  = "1.3.6.1.4.1.9.9.380.1.4.1.1"
   MAC_INDEX   = "0.17.34.51.68.85"
   ENGINE_ID   = "8000000001020304"
   DEVICE_IP   = "192.0.2.42"
@@ -24,6 +25,13 @@ private class PoeSwitchFixture
   property lose_disable_reply = false
   property reject_enable = false
   property fdb_present = true
+  property fdb_status : Int32? = 3
+  property dhcp_ip : String? = nil
+  property dhcp_vlan = 42
+  property dhcp_interface = 10104
+  property dhcp_status = 1
+  property dhcp_lease = 300_u32
+  property dhcp_reads_remaining : Int32? = nil
   property bridge_port_mapped = true
   property bridge_if_index = 10104
   property read_neighbors = true
@@ -97,6 +105,9 @@ private class PoeSwitchFixture
                    .sort_by { |value| oid_arcs(value.oid) }.first(request.error_index)
                  values.empty? ? [exception_binding(request.oid, 2)] : values
                when .get?
+                 if (remaining = @dhcp_reads_remaining) && remaining > 0 && request.oid.starts_with?("#{DHCP_ENTRY}.3.")
+                   @dhcp_reads_remaining = remaining - 1
+                 end
                  request.varbinds.map { |binding| rows[binding.oid]? || exception_binding(binding.oid, 1) }
                when .set?
                  value = request.varbind.get_integer.to_i
@@ -137,6 +148,16 @@ private class PoeSwitchFixture
   private def table(scope)
     rows = Hash(String, SNMP::VarBind).new
     if scope.empty?
+      if (ip = @dhcp_ip) && @dhcp_reads_remaining != 0
+        suffix = "#{@dhcp_vlan}.#{MAC_INDEX}"
+        octets = ip.split('.').map(&.to_u8)
+        values = {3 => 1, 4 => ASN1::BER.new.set_bytes(Bytes.new(4) { |index| octets[index] }),
+                  5 => @dhcp_interface, 6 => SNMP::Gauge32.new(@dhcp_lease), 7 => @dhcp_status}
+        values.each do |column, value|
+          oid = "#{DHCP_ENTRY}.#{column}.#{suffix}"
+          rows[oid] = SNMP::VarBind.from_value(oid, value)
+        end
+      end
       if @read_neighbors
         mac = ASN1::BER.new.set_bytes(Bytes[0, 17, 34, 51, 68, 85])
         if @legacy_arp
@@ -205,7 +226,9 @@ private class PoeSwitchFixture
       port_oid = "#{table}.2.#{index_prefix}#{mac}"
       status_oid = "#{table}.3.#{index_prefix}#{mac}"
       rows[port_oid] = SNMP::VarBind.from_value(port_oid, port)
-      rows[status_oid] = SNMP::VarBind.from_value(status_oid, 3)
+      if status = @fdb_status
+        rows[status_oid] = SNMP::VarBind.from_value(status_oid, status)
+      end
     end
   end
 end
@@ -287,6 +310,115 @@ DriverSpecs.mock_driver "Networking::PoeReboot" do
     result["outcome"].should eq("rebooted")
     status[:switches][host]["ports"][0]["vlan"].should eq(42)
     fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  end
+
+  it "reboots a Catalyst port when an active DHCP snooping binding corroborates the forwarding row" do
+    fixture.writes.clear
+    fixture.catalyst = true
+    fixture.fdb_status = 5
+    fixture.dhcp_ip = target
+    settings(defaults.merge({switch_vlans: {host => [42]}}))
+
+    row = status[:switches][host]["ports"][0]
+    row["verification"].should eq("dhcp_snooping")
+    row["vlan"].should eq(42)
+    row["if_index"].should eq(10104)
+    exec(:reboot_device, target).get["outcome"].should eq("rebooted")
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  ensure
+    fixture.catalyst = false
+    fixture.fdb_status = 3
+    fixture.dhcp_ip = nil
+  end
+
+  it "uses the default SNMPv3 context for the binding and the VLAN context for forwarding" do
+    fixture.writes.clear
+    fixture.catalyst = true
+    fixture.fdb_status = nil
+    fixture.dhcp_ip = target
+    settings(defaults.merge({switch_vlans: {host => [42]}, snmp: {
+      version: "v3", username: PoeSwitchFixture::V3_USERNAME, port: fixture.port, timeout: 1,
+      auth_protocol: "sha256", auth_password: PoeSwitchFixture::V3_AUTH,
+      priv_protocol: "aes", priv_password: PoeSwitchFixture::V3_PRIV,
+    }}))
+
+    status[:switches][host]["ports"][0]["verification"].should eq("dhcp_snooping")
+    exec(:reboot_device, target).get["outcome"].should eq("rebooted")
+    fixture.writes.should eq([{PoeSwitchFixture::ADMIN, 2}, {PoeSwitchFixture::ADMIN, 1}])
+  ensure
+    fixture.catalyst = false
+    fixture.fdb_status = 3
+    fixture.dhcp_ip = nil
+  end
+
+  it "leaves the port powered when DHCP snooping corroboration is missing or mismatched" do
+    fixture.writes.clear
+    fixture.fdb_status = 5
+    settings(defaults)
+    [
+      {nil, 42, 10104, 1, 300_u32},
+      {"192.0.2.43", 42, 10104, 1, 300_u32},
+      {target, 43, 10104, 1, 300_u32},
+      {target, 42, 10105, 1, 300_u32},
+      {target, 42, 10104, 2, 300_u32},
+      {target, 42, 10104, 1, 0_u32},
+    ].each do |ip, vlan, interface, row_status, lease|
+      fixture.dhcp_ip = ip
+      fixture.dhcp_vlan = vlan
+      fixture.dhcp_interface = interface
+      fixture.dhcp_status = row_status
+      fixture.dhcp_lease = lease
+      expect_raises(PlaceOS::Driver::RemoteException, /no matching active DHCP snooping binding/) do
+        exec(:reboot_device, target).get
+      end
+    end
+    fixture.writes.should be_empty
+  ensure
+    fixture.fdb_status = 3
+    fixture.dhcp_ip = nil
+    fixture.dhcp_vlan = 42
+    fixture.dhcp_interface = 10104
+    fixture.dhcp_status = 1
+    fixture.dhcp_lease = 300_u32
+  end
+
+  it "rejects invalid forwarding rows and keeps DHCPv4 corroboration specific to the bound IP" do
+    fixture.writes.clear
+    fixture.dhcp_ip = target
+    settings(defaults.merge({device_ips: [target, "2001:db8::42"]}))
+    {2, 4}.each do |fdb_status|
+      fixture.fdb_status = fdb_status
+      expect_raises(PlaceOS::Driver::RemoteException, /forwarding status #{fdb_status}/) do
+        exec(:reboot_device, target).get
+      end
+    end
+    fixture.fdb_status = 5
+    exec(:query_state).get
+    status[:switches][host]["ports"].as_a.map(&.["ip"].as_s).should eq([target])
+    expect_raises(PlaceOS::Driver::RemoteException, /no matching active DHCP snooping binding/) do
+      exec(:reboot_device, "2001:db8::42").get
+    end
+    fixture.writes.should be_empty
+  ensure
+    fixture.fdb_status = 3
+    fixture.dhcp_ip = nil
+  end
+
+  it "checks the DHCP snooping binding again before writing PoE admin state" do
+    fixture.writes.clear
+    fixture.fdb_status = 5
+    fixture.dhcp_ip = target
+    settings(defaults)
+    fixture.dhcp_reads_remaining = 1
+
+    result = exec(:reboot_device, target).get
+    result["outcome"].should eq("failed")
+    result["error"].should eq("DHCP snooping binding changed before reboot")
+    fixture.writes.should be_empty
+  ensure
+    fixture.fdb_status = 3
+    fixture.dhcp_ip = nil
+    fixture.dhcp_reads_remaining = nil
   end
 
   it "does not assign a shared filtering database to a configured VLAN" do
